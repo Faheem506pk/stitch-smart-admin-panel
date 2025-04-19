@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/lib/hooks";
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
@@ -36,10 +36,12 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
     },
   ]);
 
+  const isMobile = useIsMobile();
+
   return (
     <header className={cn(
       "fixed top-0 z-20 flex h-14 items-center border-b border-border bg-background px-4",
-      sidebarCollapsed ? "left-[70px] w-[calc(100%-70px)]" : "left-[250px] w-[calc(100%-250px)]"
+      isMobile ? "left-0 w-full" : (sidebarCollapsed ? "left-[70px] w-[calc(100%-70px)]" : "left-[250px] w-[calc(100%-250px)]")
     )}>
       <div className="flex flex-1 items-center justify-between">
         <div className="flex w-full max-w-sm items-center space-x-2">
@@ -48,7 +50,10 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
             <Input
               type="search"
               placeholder="Search..."
-              className="w-full rounded-md pl-8 md:w-[300px] lg:w-[400px]"
+              className={cn(
+                "w-full rounded-md pl-8",
+                isMobile ? "max-w-[150px]" : "md:w-[300px] lg:w-[400px]"
+              )}
             />
           </div>
         </div>
