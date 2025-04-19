@@ -195,7 +195,7 @@ const Delivery = () => {
     }
     
     toast.promise(
-      syncDeliveriesWithFirebase(),
+      syncDeliveriesWithFirebase(isOnline),
       {
         loading: 'Syncing with cloud...',
         success: 'Deliveries synchronized successfully',
