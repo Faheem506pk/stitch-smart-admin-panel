@@ -3,6 +3,8 @@ import { STORES, add, getAll, update, getById, deleteRecord } from '@/lib/indexe
 import { syncWithServer } from '@/lib/indexedDb';
 import { firestoreService, isFirebaseInitialized } from '@/services/firebase';
 import { toast } from "sonner";
+
+// Import useStore only for TypeScript types, not for direct usage
 import { useStore } from '@/store/useStore';
 
 export interface DeliveryItem {
@@ -49,7 +51,11 @@ export const getDeliveryItemsByStatus = async (status: string): Promise<Delivery
 };
 
 // Update delivery status
-export const updateDeliveryStatus = async (id: number, status: 'pending' | 'in-transit' | 'delivered' | 'cancelled'): Promise<boolean> => {
+export const updateDeliveryStatus = async (
+  id: number, 
+  status: 'pending' | 'in-transit' | 'delivered' | 'cancelled',
+  isOnline: boolean // Pass online status as parameter instead of accessing store directly
+): Promise<boolean> => {
   try {
     const delivery = await getById<DeliveryItem>(STORES.ORDERS, id);
     if (!delivery) {
@@ -68,7 +74,7 @@ export const updateDeliveryStatus = async (id: number, status: 'pending' | 'in-t
     await update(STORES.ORDERS, updatedDelivery);
     
     // Sync with Firebase if online
-    if (isFirebaseInitialized() && useStore.getState().isOnline) {
+    if (isFirebaseInitialized() && isOnline) {
       await firestoreService.updateDocument(DELIVERY_COLLECTION, String(id), {
         status,
         updatedAt: new Date().toISOString(),
@@ -89,8 +95,8 @@ export const updateDeliveryStatus = async (id: number, status: 'pending' | 'in-t
 };
 
 // Sync all pending delivery changes with Firebase
-export const syncPendingDeliveryChanges = async (): Promise<void> => {
-  if (!isFirebaseInitialized() || !useStore.getState().isOnline) {
+export const syncPendingDeliveryChanges = async (isOnline: boolean): Promise<void> => {
+  if (!isFirebaseInitialized() || !isOnline) {
     return;
   }
   
@@ -119,11 +125,11 @@ export const syncPendingDeliveryChanges = async (): Promise<void> => {
 };
 
 // Sync deliveries with Firebase
-export const syncDeliveriesWithFirebase = async (): Promise<void> => {
+export const syncDeliveriesWithFirebase = async (isOnline: boolean): Promise<void> => {
   if (!isFirebaseInitialized()) return;
   
   // First, sync any pending changes
-  await syncPendingDeliveryChanges();
+  await syncPendingDeliveryChanges(isOnline);
   
   // Then sync all deliveries
   await syncWithServer(STORES.ORDERS);

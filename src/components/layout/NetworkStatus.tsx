@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Wifi, WifiOff } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { cn } from "@/lib/utils";
+import { syncPendingDeliveryChanges } from "@/services/deliveryService";
 
 export function NetworkStatus() {
   const isOnline = useStore((state) => state.isOnline);
@@ -13,7 +14,12 @@ export function NetworkStatus() {
     setOnlineStatus(navigator.onLine);
 
     // Event listeners
-    const handleOnline = () => setOnlineStatus(true);
+    const handleOnline = () => {
+      setOnlineStatus(true);
+      // When back online, try to sync pending changes
+      syncPendingDeliveryChanges(true).catch(console.error);
+    };
+    
     const handleOffline = () => setOnlineStatus(false);
 
     window.addEventListener("online", handleOnline);

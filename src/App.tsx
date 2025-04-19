@@ -18,10 +18,13 @@ import Delivery from "./pages/Delivery";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import { checkAndSeedData } from "./lib/dataSeeder";
+import { useStore } from "@/store/useStore";
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  const isOnline = useStore((state) => state.isOnline);
+  
   useEffect(() => {
     // Seed database with sample data on first run
     checkAndSeedData().catch(console.error);
