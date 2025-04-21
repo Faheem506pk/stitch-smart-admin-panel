@@ -12,8 +12,12 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false); // new mobile sidebar open state
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const handleMobileToggle = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -23,10 +27,12 @@ export function Layout({ children }: LayoutProps) {
           isMobile ? (mobileSidebarOpen ? "w-[18rem]" : "w-0") : sidebarCollapsed ? "w-[70px]" : "w-[250px]"
         )}
         onCollapse={(collapsed) => setSidebarCollapsed(collapsed)}
+        isMobileSidebarOpen={mobileSidebarOpen}
+        onMobileToggle={handleMobileToggle}
       />
       <Header
         sidebarCollapsed={sidebarCollapsed}
-        onMobileToggle={() => setMobileSidebarOpen((open) => !open)}
+        onMobileToggle={handleMobileToggle}
       />
       <main
         className={cn(

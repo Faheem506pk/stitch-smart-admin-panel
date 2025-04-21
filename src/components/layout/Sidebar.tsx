@@ -18,16 +18,25 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import { useStore } from "@/store/useStore";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SidebarProps {
   className?: string;
   onCollapse?: (collapsed: boolean) => void;
+  isMobileSidebarOpen?: boolean;
+  onMobileToggle?: () => void;
 }
 
-export function Sidebar({ className, onCollapse }: SidebarProps) {
+export function Sidebar({ 
+  className, 
+  onCollapse, 
+  isMobileSidebarOpen, 
+  onMobileToggle 
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { theme, setTheme } = useTheme();
+  const isMobile = useIsMobile();
 
   const navItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -49,24 +58,35 @@ export function Sidebar({ className, onCollapse }: SidebarProps) {
     >
       <div className="flex h-full flex-col overflow-hidden bg-sidebar border-r border-sidebar-border">
         <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-          {!collapsed && (
+          {!collapsed && !isMobile && (
             <Link to="/" className="flex items-center gap-2">
               <Scissors className="h-6 w-6 text-primary" />
               <span className="font-bold text-sidebar-foreground">StitchSmart</span>
             </Link>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("ml-auto", collapsed && "mx-auto")}
-            onClick={() => {
-              const newCollapsed = !collapsed;
-              setCollapsed(newCollapsed);
-              onCollapse?.(newCollapsed);
-            }}
-          >
-            {collapsed ? <Menu size={20} /> : <X size={20} />}
-          </Button>
+          {isMobile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto"
+              onClick={onMobileToggle}
+            >
+              <X size={20} />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("ml-auto", collapsed && "mx-auto")}
+              onClick={() => {
+                const newCollapsed = !collapsed;
+                setCollapsed(newCollapsed);
+                onCollapse?.(newCollapsed);
+              }}
+            >
+              {collapsed ? <Menu size={20} /> : <X size={20} />}
+            </Button>
+          )}
         </div>
 
         <nav className="flex-1 overflow-auto p-2">
