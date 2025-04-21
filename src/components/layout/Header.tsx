@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/lib/hooks";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
