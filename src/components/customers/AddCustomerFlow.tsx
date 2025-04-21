@@ -262,7 +262,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       const existingCustomer = customers.find(c => c.phone === phone);
       
       if (existingCustomer) {
-        setExistingCustomer(existingCustomer as Customer);
+        setExistingCustomer(existingCustomer);
         setCustomerData({
           name: existingCustomer.name || '',
           phone: existingCustomer.phone || '',
