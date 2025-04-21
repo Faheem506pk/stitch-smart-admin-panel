@@ -12,27 +12,33 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false); // new mobile sidebar open state
   const isMobile = useIsMobile();
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar 
+      <Sidebar
         className={cn(
           "transition-all duration-300 ease-in-out",
-          isMobile ? "w-0" : (sidebarCollapsed ? "w-[70px]" : "w-[250px]")
-        )} 
+          isMobile ? (mobileSidebarOpen ? "w-[18rem]" : "w-0") : sidebarCollapsed ? "w-[70px]" : "w-[250px]"
+        )}
         onCollapse={(collapsed) => setSidebarCollapsed(collapsed)}
       />
-      <Header sidebarCollapsed={sidebarCollapsed} />
-      <main 
+      <Header
+        sidebarCollapsed={sidebarCollapsed}
+        onMobileToggle={() => setMobileSidebarOpen((open) => !open)}
+      />
+      <main
         className={cn(
           "transition-all duration-300 ease-in-out pt-14 pb-8",
-          isMobile ? "ml-0" : (sidebarCollapsed ? "ml-[70px]" : "ml-[250px]")
+          isMobile
+            ? "ml-0"
+            : sidebarCollapsed
+            ? "ml-[70px]"
+            : "ml-[250px]"
         )}
       >
-        <div className="container mx-auto p-4">
-          {children}
-        </div>
+        <div className="container mx-auto p-4">{children}</div>
       </main>
       <NetworkStatus />
     </div>

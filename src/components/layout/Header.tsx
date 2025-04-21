@@ -1,24 +1,25 @@
 
 import { useState } from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
+  onMobileToggle?: () => void; // new prop to toggle mobile sidebar
 }
 
-export function Header({ sidebarCollapsed }: HeaderProps) {
+export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
   const [notifications] = useState([
     {
       id: 1,
@@ -40,13 +41,30 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
   const isMobile = useIsMobile();
 
   return (
-    <header className={cn(
-      "fixed top-0 z-20 flex h-14 items-center border-b border-border bg-background px-4",
-      isMobile ? "left-0 w-full" : (sidebarCollapsed ? "left-[70px] w-[calc(100%-70px)]" : "left-[250px] w-[calc(100%-250px)]")
-    )}>
+    <header
+      className={cn(
+        "fixed top-0 z-20 flex h-14 items-center border-b border-border bg-background px-4",
+        isMobile
+          ? "left-0 w-full"
+          : sidebarCollapsed
+          ? "left-[70px] w-[calc(100%-70px)]"
+          : "left-[250px] w-[calc(100%-250px)]"
+      )}
+    >
       <div className="flex flex-1 items-center justify-between">
-        <div className="flex w-full max-w-sm items-center space-x-2">
-          <div className="relative w-full">
+        <div className="flex items-center space-x-2">
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onMobileToggle && onMobileToggle()}
+              className="mr-2 md:hidden"
+              aria-label="Toggle Sidebar"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          <div className="relative w-full max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
@@ -58,7 +76,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
             />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -73,9 +91,14 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {notifications.map((notification) => (
-                <DropdownMenuItem key={notification.id} className="flex flex-col items-start py-2">
+                <DropdownMenuItem
+                  key={notification.id}
+                  className="flex flex-col items-start py-2"
+                >
                   <span>{notification.title}</span>
-                  <span className="text-xs text-muted-foreground">{notification.time}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {notification.time}
+                  </span>
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
@@ -84,7 +107,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
               <span className="text-sm font-medium text-primary">A</span>
