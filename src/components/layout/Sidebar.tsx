@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
@@ -58,12 +57,13 @@ export function Sidebar({
     >
       <div className="flex h-full flex-col overflow-hidden bg-sidebar border-r border-sidebar-border">
         <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-          {!collapsed && !isMobile && (
+          {(!collapsed && !isMobile) || (isMobile && isMobileSidebarOpen) ? (
             <Link to="/" className="flex items-center gap-2">
               <Scissors className="h-6 w-6 text-primary" />
               <span className="font-bold text-sidebar-foreground">StitchSmart</span>
             </Link>
-          )}
+          ) : null}
+
           {isMobile ? (
             <Button
               variant="ghost"
