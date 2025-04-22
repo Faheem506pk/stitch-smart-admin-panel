@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog } from '@/components/ui/dialog';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
@@ -84,7 +83,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   const [saveInProgress, setSaveInProgress] = useState(false);
   const [skipToFinish, setSkipToFinish] = useState(false);
 
-  // Store form progress in IndexedDB when user goes offline
   const isOnline = useStore(state => state.isOnline);
   
   useEffect(() => {
@@ -100,7 +98,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     }
   }, [isOnline, step, customerData, measurementData, orderData, paymentData, open]);
 
-  // Restore form progress when coming back online
   useEffect(() => {
     if (isOnline && open) {
       const storedProgress = localStorage.getItem('addCustomerFormProgress');
@@ -126,7 +123,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     }
   }, [isOnline, open, toast]);
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       setStep(1);
@@ -154,7 +150,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   const handleSaveCustomer = async () => {
     setSaveInProgress(true);
     try {
-      // Create or update customer
       const customerId = existingCustomer ? existingCustomer.id : '';
       
       const customerToSave = {
@@ -171,18 +166,15 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       let savedCustomer;
       
       if (existingCustomer) {
-        // Update existing customer
         await firestoreService.updateDocument('customers', customerId, customerToSave);
         savedCustomer = { id: customerId, ...customerToSave };
       } else {
-        // Create new customer
         savedCustomer = await firestoreService.addDocument('customers', customerToSave);
       }
 
       if (savedCustomer && savedCustomer.id) {
         setSavedCustomerId(savedCustomer.id);
         
-        // Add measurements if present
         if (Object.keys(measurementData.values).length > 0) {
           await firestoreService.addDocument('measurements', {
             customerId: savedCustomer.id,
@@ -194,7 +186,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           });
         }
         
-        // Add order if any items exist
         if (orderData.items.length > 0) {
           const orderId = await firestoreService.addDocument('orders', {
             customerId: savedCustomer.id,
@@ -207,18 +198,17 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             notes: orderData.notes,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            createdBy: "current-user", // Replace with actual user ID
-            lastUpdatedBy: "current-user" // Replace with actual user ID
+            createdBy: "current-user",
+            lastUpdatedBy: "current-user"
           });
           
-          // Add payment if amount > 0
           if (orderId && paymentData.advanceAmount > 0) {
             await firestoreService.addDocument('payments', {
               orderId: orderId.id,
               amount: paymentData.advanceAmount,
               paymentMethod: paymentData.paymentMethod,
               date: new Date().toISOString(),
-              receivedBy: "current-user" // Replace with actual user ID
+              receivedBy: "current-user"
             });
           }
         }
@@ -245,7 +235,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     }
   };
 
-  // If skipToFinish is true and we're not on the finish step, go to finish step
   useEffect(() => {
     if (skipToFinish && step < 6) {
       setStep(6);
@@ -253,19 +242,17 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   }, [skipToFinish, step]);
 
   const handleCheckCustomer = async (phone: string, isWhatsApp: boolean) => {
-    // Update customer data
     setCustomerData(prev => ({ ...prev, phone, isWhatsApp }));
     
     try {
-      // Search for customer in Firestore
       const customers = await firestoreService.getDocuments('customers');
-      const existingCustomer = customers.find(c => c.phone === phone);
+      const existingCustomer = customers.find(c => c.phone === phone) as Customer | undefined;
       
       if (existingCustomer) {
         setExistingCustomer(existingCustomer);
         setCustomerData({
-          name: existingCustomer.name || '',
-          phone: existingCustomer.phone || '',
+          name: existingCustomer.name,
+          phone: existingCustomer.phone,
           email: existingCustomer.email || '',
           address: existingCustomer.address || '',
           isWhatsApp,
@@ -285,7 +272,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         });
       }
       
-      // Proceed to next step
       goToNextStep();
     } catch (error) {
       console.error("Error checking customer:", error);
