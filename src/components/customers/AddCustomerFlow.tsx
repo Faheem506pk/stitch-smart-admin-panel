@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from 'react';
-import { Dialog } from '@/components/ui/dialog';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
 import { AddCustomerStepInfo } from './AddCustomerStepInfo';
 import { AddCustomerStepMeasurements } from './AddCustomerStepMeasurements';
@@ -247,11 +245,22 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     
     try {
       const customers = await firestoreService.getDocuments('customers');
-      // We need to make sure we have all the data fields before using the customer
-      const foundCustomer = customers.find(c => c.phone === phone);
+      
+      type FirestoreCustomer = {
+        id: string;
+        name?: string;
+        phone?: string;
+        email?: string;
+        address?: string;
+        profilePicture?: string;
+        notes?: string;
+        createdAt?: string;
+        updatedAt?: string;
+      };
+      
+      const foundCustomer = (customers as FirestoreCustomer[]).find(c => c.phone === phone);
       
       if (foundCustomer) {
-        // Make sure we properly cast and provide defaults for all required fields
         const validCustomer: Customer = {
           id: foundCustomer.id || '',
           name: foundCustomer.name || '',
@@ -381,73 +390,51 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="bg-background border rounded-lg shadow-lg w-full max-w-3xl overflow-hidden">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">
-                  {step === 1 ? "Add New Customer" : 
-                   step === 2 ? (existingCustomer ? "Edit Customer" : "Customer Details") : 
-                   step === 3 ? "Measurements" : 
-                   step === 4 ? "Create Order" : 
-                   step === 5 ? "Payment Details" : "Customer Added"}
-                </h2>
-                {step < 6 && (
-                  <div className="mt-1 flex space-x-2">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <div 
-                        key={s}
-                        className={`h-1.5 rounded-full w-12 ${
-                          s === step ? 'bg-primary' : 
-                          s < step ? 'bg-primary/70' : 'bg-gray-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
+    <div className="bg-background border rounded-lg shadow-lg w-full overflow-hidden">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">
+              {step === 1 ? "Add New Customer" : 
+               step === 2 ? (existingCustomer ? "Edit Customer" : "Customer Details") : 
+               step === 3 ? "Measurements" : 
+               step === 4 ? "Create Order" : 
+               step === 5 ? "Payment Details" : "Customer Added"}
+            </h2>
+            {step < 6 && (
+              <div className="mt-1 flex space-x-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <div 
+                    key={s}
+                    className={`h-1.5 rounded-full w-12 ${
+                      s === step ? 'bg-primary' : 
+                      s < step ? 'bg-primary/70' : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
               </div>
-            </div>
-            
-            <AnimatePresence custom={direction} mode="wait">
-              <motion.div
-                key={step}
-                custom={direction}
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{
-                  x: { type: "spring", stiffness: 300, damping: 30 },
-                  opacity: { duration: 0.2 },
-                  rotateY: { duration: 0.4 }
-                }}
-              >
-                {renderStep()}
-              </motion.div>
-            </AnimatePresence>
+            )}
           </div>
         </div>
+        
+        <AnimatePresence custom={direction} mode="wait">
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: "spring", stiffness: 300, damping: 30 },
+              opacity: { duration: 0.2 },
+              rotateY: { duration: 0.4 }
+            }}
+          >
+            {renderStep()}
+          </motion.div>
+        </AnimatePresence>
       </div>
-    </Dialog>
+    </div>
   );
 }
-
-const variants = {
-  enter: (direction: 'forward' | 'backward') => ({
-    x: direction === 'forward' ? 300 : -300,
-    opacity: 0,
-    rotateY: direction === 'forward' ? 45 : -45,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    rotateY: 0,
-  },
-  exit: (direction: 'forward' | 'backward') => ({
-    x: direction === 'forward' ? -300 : 300,
-    opacity: 0,
-    rotateY: direction === 'forward' ? -45 : 45,
-  }),
-};

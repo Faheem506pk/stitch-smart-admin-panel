@@ -1,4 +1,9 @@
 
+import {
+  Dialog,
+  DialogContent,
+  DialogOverlay
+} from '@/components/ui/dialog';
 import { AddCustomerFlow } from './AddCustomerFlow';
 
 interface AddCustomerDialogProps {
@@ -8,9 +13,14 @@ interface AddCustomerDialogProps {
 
 export function AddCustomerDialog({ open, onOpenChange }: AddCustomerDialogProps) {
   return (
-    <AddCustomerFlow 
-      open={open} 
-      onOpenChange={onOpenChange} 
-    />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogOverlay />
+      <DialogContent className="p-0 border-none bg-transparent max-w-3xl">
+        <AddCustomerFlow 
+          open={open} 
+          onOpenChange={onOpenChange} 
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
