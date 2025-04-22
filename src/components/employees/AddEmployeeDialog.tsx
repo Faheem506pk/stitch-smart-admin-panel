@@ -1,39 +1,12 @@
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { employeeService } from "@/services/employeeService";
-import { Employee } from "@/types/models";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import * as z from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-
-const employeeSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  position: z.string().min(2, { message: "Position is required." }),
-  phoneNumber: z.string().min(5, { message: "Phone number is required." }),
-});
-
-type EmployeeFormValues = z.infer<typeof employeeSchema>;
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { employeeService } from '@/services/employeeService';
+import { useToast } from '@/hooks/use-toast';
 
 interface AddEmployeeDialogProps {
   open: boolean;
@@ -41,26 +14,34 @@ interface AddEmployeeDialogProps {
 }
 
 export function AddEmployeeDialog({ open, onOpenChange }: AddEmployeeDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [position, setPosition] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<EmployeeFormValues>({
-    resolver: zodResolver(employeeSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      position: "",
-      phoneNumber: "",
-    },
-  });
-
-  const handleSubmit = async (data: EmployeeFormValues) => {
-    setIsSubmitting(true);
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name || !email || !phoneNumber || !position) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
     try {
-      const newEmployee: Omit<Employee, 'id'> = {
-        ...data,
-        role: 'employee',
+      const newEmployee = {
+        name: name,
+        email: email,
+        phoneNumber: phoneNumber,
+        position: position,
+        role: "employee" as const,
         hireDate: new Date().toISOString(),
         permissions: {
           customers: { view: true, add: false, edit: false, delete: false },
@@ -68,14 +49,25 @@ export function AddEmployeeDialog({ open, onOpenChange }: AddEmployeeDialogProps
           measurements: { view: true, add: false, edit: false },
           payments: { view: true, add: false },
           employees: { view: false, add: false, edit: false, delete: false },
-          settings: { view: false, edit: false },
+          settings: { view: false, edit: false }
         }
       };
-
+      
       const result = await employeeService.addEmployee(newEmployee);
       
       if (result) {
-        form.reset();
+        toast({
+          title: "Success",
+          description: "Employee added successfully!"
+        });
+        
+        // Reset form
+        setName('');
+        setEmail('');
+        setPhoneNumber('');
+        setPosition('');
+        
+        // Close dialog
         onOpenChange(false);
       }
     } catch (error) {
@@ -83,88 +75,77 @@ export function AddEmployeeDialog({ open, onOpenChange }: AddEmployeeDialogProps
       toast({
         title: "Error",
         description: "Failed to add employee. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)}>
-            <DialogHeader>
-              <DialogTitle>Add Employee</DialogTitle>
-              <DialogDescription>
-                Add a new employee to your tailor shop. Fill in all required information.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="position"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Position</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <Input type="tel" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Adding..." : "Add Employee"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        <DialogHeader>
+          <DialogTitle>Add New Employee</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input 
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter employee name"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input 
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter employee email"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input 
+              id="phone"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="Enter phone number"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="position">Position</Label>
+            <Select value={position} onValueChange={setPosition} required>
+              <SelectTrigger id="position">
+                <SelectValue placeholder="Select position" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tailor">Tailor</SelectItem>
+                <SelectItem value="cutter">Cutter</SelectItem>
+                <SelectItem value="salesperson">Salesperson</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="helper">Helper</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <DialogFooter>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Adding..." : "Add Employee"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

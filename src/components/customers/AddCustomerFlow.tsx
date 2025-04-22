@@ -7,7 +7,7 @@ import { AddCustomerStepPayment } from './AddCustomerStepPayment';
 import { AddCustomerStepFinish } from './AddCustomerStepFinish';
 import { Customer } from '@/types/models';
 import { AnimatePresence, motion } from 'framer-motion';
-import { firestoreService } from '@/services/firebase';
+import { customerService } from '@/services/customerService';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/store/useStore';
 
@@ -47,7 +47,7 @@ export type PaymentFormData = {
   paymentMethod: 'cash' | 'other';
 };
 
-interface AddCustomerFlowProps {
+export interface AddCustomerFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -165,17 +165,17 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       let savedCustomer;
       
       if (existingCustomer) {
-        await firestoreService.updateDocument('customers', customerId, customerToSave);
+        await customerService.updateCustomer(customerId, customerToSave);
         savedCustomer = { id: customerId, ...customerToSave };
       } else {
-        savedCustomer = await firestoreService.addDocument('customers', customerToSave);
+        savedCustomer = await customerService.addCustomer(customerToSave);
       }
 
       if (savedCustomer && savedCustomer.id) {
         setSavedCustomerId(savedCustomer.id);
         
         if (Object.keys(measurementData.values).length > 0) {
-          await firestoreService.addDocument('measurements', {
+          await customerService.addMeasurement({
             customerId: savedCustomer.id,
             type: measurementData.type,
             values: measurementData.values,
@@ -186,7 +186,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         }
         
         if (orderData.items.length > 0) {
-          const orderId = await firestoreService.addDocument('orders', {
+          const order = await customerService.addOrder({
             customerId: savedCustomer.id,
             items: orderData.items,
             status: orderData.status,
@@ -201,9 +201,9 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             lastUpdatedBy: "current-user"
           });
           
-          if (orderId && paymentData.advanceAmount > 0) {
-            await firestoreService.addDocument('payments', {
-              orderId: orderId.id,
+          if (order && paymentData.advanceAmount > 0) {
+            await customerService.addPayment({
+              orderId: order.id,
               amount: paymentData.advanceAmount,
               paymentMethod: paymentData.paymentMethod,
               date: new Date().toISOString(),
@@ -244,44 +244,18 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     setCustomerData(prev => ({ ...prev, phone, isWhatsApp }));
     
     try {
-      const customers = await firestoreService.getDocuments('customers');
-      
-      type FirestoreCustomer = {
-        id: string;
-        name?: string;
-        phone?: string;
-        email?: string;
-        address?: string;
-        profilePicture?: string;
-        notes?: string;
-        createdAt?: string;
-        updatedAt?: string;
-      };
-      
-      const foundCustomer = (customers as FirestoreCustomer[]).find(c => c.phone === phone);
+      const foundCustomer = await customerService.getCustomerByPhone(phone);
       
       if (foundCustomer) {
-        const validCustomer: Customer = {
-          id: foundCustomer.id || '',
-          name: foundCustomer.name || '',
-          phone: foundCustomer.phone || '',
-          email: foundCustomer.email || '',
-          address: foundCustomer.address || '',
-          profilePicture: foundCustomer.profilePicture || '',
-          notes: foundCustomer.notes || '',
-          createdAt: foundCustomer.createdAt || new Date().toISOString(),
-          updatedAt: foundCustomer.updatedAt || new Date().toISOString()
-        };
-        
-        setExistingCustomer(validCustomer);
+        setExistingCustomer(foundCustomer);
         setCustomerData({
-          name: validCustomer.name,
-          phone: validCustomer.phone,
-          email: validCustomer.email,
-          address: validCustomer.address,
+          name: foundCustomer.name,
+          phone: foundCustomer.phone,
+          email: foundCustomer.email,
+          address: foundCustomer.address,
           isWhatsApp,
-          profilePicture: validCustomer.profilePicture,
-          notes: validCustomer.notes
+          profilePicture: foundCustomer.profilePicture,
+          notes: foundCustomer.notes
         });
         
         toast({

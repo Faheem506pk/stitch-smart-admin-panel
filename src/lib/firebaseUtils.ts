@@ -17,7 +17,7 @@ export const timestampToISOString = (timestamp: any): string => {
   
   // Handle numbers (seconds or milliseconds since epoch)
   if (typeof timestamp === 'number') {
-    return new Date(timestamp * (timestamp < 10000000000 ? 1000 : 1)).toISOString();
+    return new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp).toISOString();
   }
   
   // Default fallback
@@ -43,15 +43,14 @@ export const ensureCollectionsExist = async (): Promise<void> => {
     } catch (error) {
       console.log(`Creating collection ${collection}...`);
       // Create collection by adding a dummy document
-      await firestoreService.addDocument(collection, {
+      const dummyDoc = await firestoreService.addDocument(collection, {
         _metadata: {
           collectionInitialized: true,
           createdAt: new Date().toISOString()
         }
       });
-      // Delete the dummy document
-      const docs = await firestoreService.getDocuments(collection);
-      const dummyDoc = docs.find(doc => doc._metadata?.collectionInitialized === true);
+      
+      // Delete the dummy document if it was created
       if (dummyDoc && dummyDoc.id) {
         await firestoreService.deleteDocument(collection, dummyDoc.id);
       }
