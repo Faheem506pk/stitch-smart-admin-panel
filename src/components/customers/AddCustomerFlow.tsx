@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog } from '@/components/ui/dialog';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
@@ -246,18 +247,31 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     
     try {
       const customers = await firestoreService.getDocuments('customers');
-      const existingCustomer = customers.find(c => c.phone === phone) as Customer | undefined;
+      const foundCustomer = customers.find(c => c.phone === phone);
       
-      if (existingCustomer) {
-        setExistingCustomer(existingCustomer);
+      if (foundCustomer) {
+        // Make sure foundCustomer has all the required properties before setting it
+        const validCustomer: Customer = {
+          id: foundCustomer.id,
+          name: foundCustomer.name || '',
+          phone: foundCustomer.phone || '',
+          createdAt: foundCustomer.createdAt || new Date().toISOString(),
+          updatedAt: foundCustomer.updatedAt || new Date().toISOString(),
+          email: foundCustomer.email || '',
+          address: foundCustomer.address || '',
+          profilePicture: foundCustomer.profilePicture || '',
+          notes: foundCustomer.notes || ''
+        };
+        
+        setExistingCustomer(validCustomer);
         setCustomerData({
-          name: existingCustomer.name,
-          phone: existingCustomer.phone,
-          email: existingCustomer.email || '',
-          address: existingCustomer.address || '',
+          name: validCustomer.name,
+          phone: validCustomer.phone,
+          email: validCustomer.email,
+          address: validCustomer.address,
           isWhatsApp,
-          profilePicture: existingCustomer.profilePicture || '',
-          notes: existingCustomer.notes || ''
+          profilePicture: validCustomer.profilePicture,
+          notes: validCustomer.notes
         });
         
         toast({

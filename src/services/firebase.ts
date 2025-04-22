@@ -13,6 +13,15 @@ export interface FirebaseConfig {
   appId: string;
 }
 
+const defaultFirebaseConfig = {
+  apiKey: "AIzaSyAItH36ywjf2PQ2i9vVYYhmyPm_DKvGW0E",
+  authDomain: "stichsmart-27609.firebaseapp.com",
+  projectId: "stichsmart-27609",
+  storageBucket: "stichsmart-27609.firebasestorage.app",
+  messagingSenderId: "950545083064",
+  appId: "1:950545083064:web:02986e0c231517d1bc224d"
+};
+
 // Global variables to hold Firebase instances
 let app;
 let db;
@@ -20,7 +29,7 @@ let auth;
 let storage;
 
 // Initialize Firebase with configuration
-export const initializeFirebase = (config: FirebaseConfig) => {
+export const initializeFirebase = (config: FirebaseConfig = defaultFirebaseConfig) => {
   try {
     app = initializeApp(config);
     db = getFirestore(app);
@@ -35,6 +44,9 @@ export const initializeFirebase = (config: FirebaseConfig) => {
     return { initialized: false, error };
   }
 };
+
+// Auto initialize Firebase with the default config
+initializeFirebase();
 
 // Check if Firebase is initialized
 export const isFirebaseInitialized = () => {

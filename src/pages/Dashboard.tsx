@@ -5,7 +5,7 @@ import { RecentOrders } from "@/components/dashboard/RecentOrders";
 import { UpcomingDeliveries } from "@/components/dashboard/UpcomingDeliveries";
 import { Users, FileText, Shirt, DollarSign, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AddCustomerFlow } from "@/components/customers/AddCustomerFlow";
+import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { useState } from "react";
 
 const Dashboard = () => {
@@ -62,7 +62,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <AddCustomerFlow
+        <AddCustomerDialog
           open={isAddCustomerOpen}
           onOpenChange={setIsAddCustomerOpen}
         />
