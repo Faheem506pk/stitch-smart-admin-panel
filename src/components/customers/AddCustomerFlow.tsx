@@ -250,17 +250,17 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       const foundCustomer = customers.find(c => c.phone === phone);
       
       if (foundCustomer) {
-        // Make sure foundCustomer has all the required properties before setting it
+        // Make sure the foundCustomer has all required properties before setting it
         const validCustomer: Customer = {
-          id: foundCustomer.id,
+          id: foundCustomer.id || '',
           name: foundCustomer.name || '',
           phone: foundCustomer.phone || '',
-          createdAt: foundCustomer.createdAt || new Date().toISOString(),
-          updatedAt: foundCustomer.updatedAt || new Date().toISOString(),
           email: foundCustomer.email || '',
           address: foundCustomer.address || '',
           profilePicture: foundCustomer.profilePicture || '',
-          notes: foundCustomer.notes || ''
+          notes: foundCustomer.notes || '',
+          createdAt: foundCustomer.createdAt || new Date().toISOString(),
+          updatedAt: foundCustomer.updatedAt || new Date().toISOString()
         };
         
         setExistingCustomer(validCustomer);
@@ -432,3 +432,21 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     </Dialog>
   );
 }
+
+const variants = {
+  enter: (direction: 'forward' | 'backward') => ({
+    x: direction === 'forward' ? 300 : -300,
+    opacity: 0,
+    rotateY: direction === 'forward' ? 45 : -45,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    rotateY: 0,
+  },
+  exit: (direction: 'forward' | 'backward') => ({
+    x: direction === 'forward' ? -300 : 300,
+    opacity: 0,
+    rotateY: direction === 'forward' ? -45 : 45,
+  }),
+};
