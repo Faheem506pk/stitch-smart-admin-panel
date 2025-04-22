@@ -247,10 +247,11 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     
     try {
       const customers = await firestoreService.getDocuments('customers');
+      // We need to make sure we have all the data fields before using the customer
       const foundCustomer = customers.find(c => c.phone === phone);
       
       if (foundCustomer) {
-        // Make sure the foundCustomer has all required properties before setting it
+        // Make sure we properly cast and provide defaults for all required fields
         const validCustomer: Customer = {
           id: foundCustomer.id || '',
           name: foundCustomer.name || '',
