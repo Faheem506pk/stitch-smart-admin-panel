@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import { checkAndSeedData } from "./lib/dataSeeder";
 import { useStore } from "@/store/useStore";
+import { initializeFirebaseApp } from "./lib/firebaseUtils";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,9 @@ const App = () => {
   const isOnline = useStore((state) => state.isOnline);
   
   useEffect(() => {
+    // Initialize Firebase
+    initializeFirebaseApp().catch(console.error);
+    
     // Seed database with sample data on first run
     checkAndSeedData().catch(console.error);
   }, []);

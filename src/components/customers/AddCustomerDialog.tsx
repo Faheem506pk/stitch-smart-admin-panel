@@ -5,6 +5,7 @@ import {
   DialogOverlay
 } from '@/components/ui/dialog';
 import { AddCustomerFlow } from './AddCustomerFlow';
+import { customerService } from '@/services/customerService';
 
 interface AddCustomerDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ export function AddCustomerDialog({ open, onOpenChange }: AddCustomerDialogProps
         <AddCustomerFlow 
           open={open} 
           onOpenChange={onOpenChange} 
+          customerService={customerService}
         />
       </DialogContent>
     </Dialog>
