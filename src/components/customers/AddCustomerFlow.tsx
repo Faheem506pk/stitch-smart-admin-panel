@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
 import { AddCustomerStepInfo } from './AddCustomerStepInfo';
@@ -5,7 +6,7 @@ import { AddCustomerStepMeasurements } from './AddCustomerStepMeasurements';
 import { AddCustomerStepOrder } from './AddCustomerStepOrder';
 import { AddCustomerStepPayment } from './AddCustomerStepPayment';
 import { AddCustomerStepFinish } from './AddCustomerStepFinish';
-import { Customer } from '@/types/models';
+import { Customer, OrderItem } from '@/types/models';
 import { AnimatePresence, motion } from 'framer-motion';
 import { customerService } from '@/services/customerService';
 import { useToast } from '@/hooks/use-toast';
@@ -186,9 +187,15 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         }
         
         if (orderData.items.length > 0) {
+          // Map the items to include an id for each item to match the OrderItem type
+          const orderItems = orderData.items.map(item => ({
+            id: crypto.randomUUID(), // Generate a unique ID for each item
+            ...item
+          }));
+
           const order = await customerService.addOrder({
             customerId: savedCustomer.id,
-            items: orderData.items,
+            items: orderItems,
             status: orderData.status,
             totalAmount: paymentData.totalAmount,
             advanceAmount: paymentData.advanceAmount,

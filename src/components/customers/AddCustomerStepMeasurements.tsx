@@ -154,6 +154,7 @@ export function AddCustomerStepMeasurements({
         </Button>
         <Button 
           onClick={onNext}
+          className="px-6"
         >
           {hasMeasurements ? "Next" : "Skip Measurements"}
         </Button>
