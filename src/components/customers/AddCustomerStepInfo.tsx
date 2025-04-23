@@ -56,44 +56,8 @@ export function AddCustomerStepInfo({
       return;
     }
 
-    setIsSaving(true);
-    
-    try {
-      if (isExisting) {
-        // If existing customer, save the updated info to Firebase
-        await customerService.updateCustomer(customerData.id || "", {
-          name: customerData.name,
-          phone: customerData.phone,
-          email: customerData.email,
-          address: customerData.address,
-          notes: customerData.notes,
-          profilePicture: customerData.profilePicture,
-          isWhatsApp: customerData.isWhatsApp,
-          updatedAt: new Date().toISOString()
-        });
-        toast({
-          title: "Success",
-          description: "Customer information updated successfully"
-        });
-      } else {
-        // For new customers, we'll save the complete record at the end of the flow
-        toast({
-          title: "Info",
-          description: "Customer information will be saved at the end of the process"
-        });
-      }
-      
-      onNext();
-    } catch (error) {
-      console.error("Error saving customer info:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save customer information",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    // Call the parent's onNext which will save the data
+    onNext();
   };
 
   return (

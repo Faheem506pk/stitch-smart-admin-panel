@@ -102,7 +102,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     setStep(step - 1);
   };
 
-  const handleSaveCustomer = async () => {
+  const saveCustomerInfo = async () => {
     setSaveInProgress(true);
     try {
       const customerId = existingCustomer ? existingCustomer.id : '';
@@ -127,63 +127,147 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       } else {
         savedCustomer = await customerService.addCustomer(customerToSave);
       }
-
+      
       if (savedCustomer && savedCustomer.id) {
         setSavedCustomerId(savedCustomer.id);
-        
-        if (Object.keys(measurementData.values).length > 0) {
-          await customerService.addMeasurement({
-            customerId: savedCustomer.id,
-            type: measurementData.type,
-            values: measurementData.values,
-            notes: measurementData.notes,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          });
-        }
-        
-        if (orderData.items.length > 0) {
-          const orderItems = orderData.items.map(item => ({
-            id: crypto.randomUUID(),
-            ...item
-          }));
-
-          const order = await customerService.addOrder({
-            customerId: savedCustomer.id,
-            items: orderItems,
-            status: orderData.status,
-            totalAmount: paymentData.totalAmount,
-            advanceAmount: paymentData.advanceAmount,
-            balanceAmount: paymentData.balanceAmount,
-            dueDate: orderData.dueDate,
-            notes: orderData.notes,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: "current-user",
-            lastUpdatedBy: "current-user"
-          });
-          
-          if (order && paymentData.advanceAmount > 0) {
-            await customerService.addPayment({
-              orderId: order.id,
-              amount: paymentData.advanceAmount,
-              paymentMethod: paymentData.paymentMethod,
-              date: new Date().toISOString(),
-              receivedBy: "current-user"
-            });
-          }
-        }
+        // Update customer data with the new ID
+        setCustomerData(prev => ({
+          ...prev,
+          id: savedCustomer?.id
+        }));
         
         toast({
           title: "Success!",
           description: existingCustomer 
-            ? "Customer updated successfully." 
-            : "New customer added successfully.",
+            ? "Customer information updated successfully." 
+            : "Customer information saved successfully.",
         });
         
-        setSkipToFinish(true);
-        goToNextStep();
+        return savedCustomer.id;
       }
+      return null;
+    } catch (error) {
+      console.error("Error saving customer info:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save customer information. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setSaveInProgress(false);
+    }
+  };
+
+  const saveMeasurement = async (customerId: string) => {
+    if (Object.keys(measurementData.values).length === 0) {
+      return true; // No measurements to save
+    }
+    
+    try {
+      await customerService.addMeasurement({
+        customerId: customerId,
+        type: measurementData.type,
+        values: measurementData.values,
+        notes: measurementData.notes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      
+      toast({
+        title: "Success!",
+        description: "Measurements saved successfully.",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error saving measurements:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save measurements. Please try again.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const saveOrder = async (customerId: string) => {
+    if (orderData.items.length === 0) {
+      return true; // No order to save
+    }
+    
+    try {
+      const orderItems = orderData.items.map(item => ({
+        id: crypto.randomUUID(),
+        ...item
+      }));
+
+      const order = await customerService.addOrder({
+        customerId: customerId,
+        items: orderItems,
+        status: orderData.status,
+        totalAmount: paymentData.totalAmount,
+        advanceAmount: paymentData.advanceAmount,
+        balanceAmount: paymentData.balanceAmount,
+        dueDate: orderData.dueDate,
+        notes: orderData.notes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: "current-user",
+        lastUpdatedBy: "current-user"
+      });
+      
+      if (order && paymentData.advanceAmount > 0) {
+        await customerService.addPayment({
+          orderId: order.id,
+          amount: paymentData.advanceAmount,
+          paymentMethod: paymentData.paymentMethod,
+          date: new Date().toISOString(),
+          receivedBy: "current-user"
+        });
+      }
+      
+      toast({
+        title: "Success!",
+        description: "Order and payment details saved successfully.",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error saving order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save order details. Please try again.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  const handleSaveCustomer = async () => {
+    setSaveInProgress(true);
+    try {
+      let customerId = customerData.id || savedCustomerId;
+      
+      if (!customerId) {
+        customerId = await saveCustomerInfo();
+        if (!customerId) {
+          throw new Error("Failed to save customer info");
+        }
+      }
+      
+      await saveMeasurement(customerId);
+      await saveOrder(customerId);
+      
+      toast({
+        title: "Success!",
+        description: existingCustomer 
+          ? "Customer updated successfully." 
+          : "New customer added successfully.",
+      });
+      
+      setSkipToFinish(true);
+      goToNextStep();
     } catch (error) {
       console.error("Error saving customer data:", error);
       toast({
@@ -244,12 +328,53 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     }
   };
 
-  const handleSkipOrder = async () => {
-    // Save the customer data without creating an order
-    await handleSaveCustomer();
+  const handleInfoNext = async () => {
+    // Save customer info to Firebase
+    const savedId = await saveCustomerInfo();
+    if (savedId) {
+      setSavedCustomerId(savedId);
+      goToNextStep();
+    }
   };
 
-  const handleSkipMeasurements = () => {
+  const handleMeasurementsNext = async () => {
+    // Save measurements if customer exists
+    if (savedCustomerId || customerData.id) {
+      const customerId = savedCustomerId || customerData.id;
+      if (customerId) {
+        await saveMeasurement(customerId);
+      }
+    }
+    goToNextStep();
+  };
+
+  const handleSkipMeasurements = async () => {
+    // Even when skipping, ensure customer info is saved
+    if (!savedCustomerId && !customerData.id) {
+      await saveCustomerInfo();
+    }
+    goToNextStep();
+  };
+
+  const handleOrderNext = async () => {
+    // Ensure customer exists in the database
+    let customerId = savedCustomerId || customerData.id;
+    if (!customerId) {
+      customerId = await saveCustomerInfo();
+      if (!customerId) return;
+    }
+    goToNextStep();
+  };
+
+  const handleSkipOrder = async () => {
+    // Save the customer data without creating an order but ensure they exist in DB
+    let customerId = savedCustomerId || customerData.id;
+    if (!customerId) {
+      customerId = await saveCustomerInfo();
+    }
+    
+    // Skip to finish
+    setSkipToFinish(true);
     goToNextStep();
   };
 
@@ -267,7 +392,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           <AddCustomerStepInfo
             customerData={customerData}
             setCustomerData={setCustomerData}
-            onNext={goToNextStep}
+            onNext={handleInfoNext}
             onBack={goToPreviousStep}
             isExisting={!!existingCustomer}
           />
@@ -277,10 +402,10 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           <AddCustomerStepMeasurements
             measurementData={measurementData}
             setMeasurementData={setMeasurementData}
-            onNext={goToNextStep}
+            onNext={handleMeasurementsNext}
             onBack={goToPreviousStep}
             onSkip={handleSkipMeasurements}
-            customerId={existingCustomer?.id}
+            customerId={savedCustomerId || customerData.id}
             isExisting={!!existingCustomer}
           />
         );
@@ -289,7 +414,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           <AddCustomerStepOrder
             orderData={orderData}
             setOrderData={setOrderData}
-            onNext={goToNextStep}
+            onNext={handleOrderNext}
             onBack={goToPreviousStep}
             onSkip={handleSkipOrder}
           />
@@ -309,7 +434,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         return (
           <AddCustomerStepFinish
             customerName={customerData.name}
-            customerId={savedCustomerId}
+            customerId={savedCustomerId || customerData.id}
             onClose={() => onOpenChange(false)}
           />
         );

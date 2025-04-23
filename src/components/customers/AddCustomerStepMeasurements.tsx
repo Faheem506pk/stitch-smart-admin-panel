@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -103,39 +104,13 @@ export function AddCustomerStepMeasurements({
   };
 
   const handleNext = async () => {
-    // Check if any measurements have been entered
-    const hasMeasurements = Object.keys(measurementData.values).length > 0;
-    
-    if (hasMeasurements && isExisting && customerId) {
-      setIsSaving(true);
-      try {
-        // Save measurements to Firebase
-        await customerService.addMeasurement({
-          customerId: customerId,
-          type: measurementData.type,
-          values: measurementData.values,
-          notes: measurementData.notes,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-        
-        toast({
-          title: "Success",
-          description: "Measurements saved successfully"
-        });
-      } catch (error) {
-        console.error("Error saving measurements:", error);
-        toast({
-          title: "Error",
-          description: "Failed to save measurements",
-          variant: "destructive"
-        });
-      } finally {
-        setIsSaving(false);
-      }
-    }
-    
+    // Call the parent's onNext function which will handle saving data
     onNext();
+  };
+
+  const handleSkip = () => {
+    // Skip measurements and go to the next step
+    onSkip();
   };
 
   // Check if any measurements have been entered
@@ -199,7 +174,7 @@ export function AddCustomerStepMeasurements({
           Back
         </Button>
         <Button 
-          onClick={handleNext}
+          onClick={hasMeasurements ? handleNext : handleSkip}
           className="px-6"
           disabled={isSaving}
         >
