@@ -78,7 +78,7 @@ export function AddCustomerStepInfo({
         <div className="flex-shrink-0">
           <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center relative overflow-hidden">
             {profileImage ? (
-              <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              <img src={profileImage?.replace('&export=download', '')}  alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <User className="h-12 w-12 text-muted-foreground" />
             )}
