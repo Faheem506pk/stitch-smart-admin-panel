@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
 import { AddCustomerStepInfo } from './AddCustomerStepInfo';
