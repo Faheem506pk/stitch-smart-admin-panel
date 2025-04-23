@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { customerService } from '@/services/customerService';
 import { Phone } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
 
 interface AddCustomerStepCheckProps {
   onCheck: (phone: string, isWhatsApp: boolean) => void;
@@ -17,15 +17,10 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
   const [phone, setPhone] = useState('');
   const [isWhatsApp, setIsWhatsApp] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
-  const { toast } = useToast();
 
   const handleCheck = async () => {
     if (!phone) {
-      toast({
-        title: "Error",
-        description: "Please enter a phone number",
-        variant: "destructive"
-      });
+      toast.error("Please enter a phone number");
       return;
     }
     
@@ -35,15 +30,17 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
       // Check if customer exists in Firebase
       const existingCustomer = await customerService.getCustomerByPhone(phone);
       
-      // Pass result to parent component
+      if (existingCustomer) {
+        toast.success("Customer found! Loading customer details...");
+      } else {
+        toast.info("No customer found with this phone number. You can add a new customer.");
+      }
+      
+      // Pass the result to parent component
       await onCheck(phone, isWhatsApp);
     } catch (error) {
       console.error("Error checking customer:", error);
-      toast({
-        title: "Error",
-        description: "Failed to check customer. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Failed to check customer. Please try again.");
     } finally {
       setIsChecking(false);
     }
@@ -106,7 +103,12 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
           onClick={handleCheck} 
           disabled={!phone || isChecking}
         >
-          {isChecking ? "Checking..." : "Check & Continue"}
+          {isChecking ? (
+            <>
+              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+              Checking...
+            </>
+          ) : "Check & Continue"}
         </Button>
       </div>
     </div>

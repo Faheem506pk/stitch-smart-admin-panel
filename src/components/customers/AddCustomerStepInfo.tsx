@@ -6,39 +6,63 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CustomerFormData } from './addCustomerFlowTypes';
-import { customerService } from '@/services/customerService';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, User, Mail, MapPin, FileText } from 'lucide-react';
+import { User, Mail, MapPin, FileText } from 'lucide-react';
+import { googleDriveService } from '@/services/googleDriveService';
 
 interface AddCustomerStepInfoProps {
   customerData: CustomerFormData;
   setCustomerData: React.Dispatch<React.SetStateAction<CustomerFormData>>;
-  onNext: () => void;
+  onSave: () => void;
   onBack: () => void;
   isExisting: boolean;
+  isSaving: boolean;
 }
 
 export function AddCustomerStepInfo({ 
   customerData, 
   setCustomerData, 
-  onNext, 
+  onSave,
   onBack,
-  isExisting
+  isExisting,
+  isSaving
 }: AddCustomerStepInfoProps) {
   const [profileImage, setProfileImage] = useState<string | null>(customerData.profilePicture || null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imageUrl = event.target?.result as string;
-        setProfileImage(imageUrl);
-        setCustomerData(prev => ({ ...prev, profilePicture: imageUrl }));
-      };
-      reader.readAsDataURL(file);
+      setIsUploading(true);
+      try {
+        // Show the local preview first
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imageUrl = event.target?.result as string;
+          setProfileImage(imageUrl);
+        };
+        reader.readAsDataURL(file);
+        
+        // Upload to Google Drive
+        const imageUrl = await googleDriveService.uploadImage(file);
+        if (imageUrl) {
+          setCustomerData(prev => ({ ...prev, profilePicture: imageUrl }));
+          toast({
+            title: "Success",
+            description: "Profile image uploaded successfully",
+          });
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast({
+          title: "Error",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
   
@@ -46,19 +70,7 @@ export function AddCustomerStepInfo({
     setCustomerData(prev => ({ ...prev, isWhatsApp: checked }));
   };
 
-  const handleNext = async () => {
-    if (!customerData.name || !customerData.phone) {
-      toast({
-        title: "Error",
-        description: "Please fill in required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Call the parent's onNext which will save the data
-    onNext();
-  };
+  const isValid = customerData.name && customerData.phone;
 
   return (
     <div className="space-y-4">
@@ -76,12 +88,20 @@ export function AddCustomerStepInfo({
               className="hidden" 
               accept="image/*"
               onChange={handleFileChange}
+              disabled={isUploading}
             />
             <label 
               htmlFor="profilePicture"
               className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
             >
-              <Camera className="h-6 w-6 text-white" />
+              {isUploading ? (
+                <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              )}
             </label>
           </div>
         </div>
@@ -172,14 +192,21 @@ export function AddCustomerStepInfo({
       </div>
       
       <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onBack} disabled={isSaving}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving || isUploading}>
           Back
         </Button>
         <Button 
-          onClick={handleNext}
-          disabled={!customerData.name || !customerData.phone || isSaving}
+          onClick={onSave}
+          disabled={!isValid || isSaving || isUploading}
         >
-          {isSaving ? "Saving..." : "Next"}
+          {isSaving ? (
+            <>
+              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+              Saving...
+            </>
+          ) : (
+            isExisting ? "Update Customer" : "Save Customer"
+          )}
         </Button>
       </div>
     </div>
