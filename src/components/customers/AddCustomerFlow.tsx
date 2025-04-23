@@ -5,47 +5,19 @@ import { AddCustomerStepMeasurements } from './AddCustomerStepMeasurements';
 import { AddCustomerStepOrder } from './AddCustomerStepOrder';
 import { AddCustomerStepPayment } from './AddCustomerStepPayment';
 import { AddCustomerStepFinish } from './AddCustomerStepFinish';
-import { Customer, OrderItem } from '@/types/models';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AddCustomerStepProgress } from './AddCustomerStepProgress';
+import { AddCustomerStepTitle } from './AddCustomerStepTitle';
+import { AddCustomerStepAnimator } from './AddCustomerStepAnimator';
+import { Customer } from '@/types/models';
 import { customerService } from '@/services/customerService';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/store/useStore';
-
-export type CustomerFormData = {
-  name: string;
-  phone: string;
-  email?: string;
-  address?: string;
-  isWhatsApp: boolean;
-  profilePicture?: string;
-  notes?: string;
-};
-
-export type MeasurementFormData = {
-  type: 'shirt' | 'pant' | 'suit' | 'dress' | 'other';
-  values: Record<string, number>;
-  notes?: string;
-};
-
-export type OrderFormData = {
-  items: {
-    type: 'shirt' | 'pant' | 'suit' | 'dress' | 'other';
-    quantity: number;
-    price: number;
-    description: string;
-    fabricDetails?: string;
-  }[];
-  dueDate: string;
-  status: 'pending' | 'stitching' | 'ready' | 'delivered';
-  notes?: string;
-};
-
-export type PaymentFormData = {
-  totalAmount: number;
-  advanceAmount: number;
-  balanceAmount: number;
-  paymentMethod: 'cash' | 'other';
-};
+import {
+  CustomerFormData,
+  MeasurementFormData,
+  OrderFormData,
+  PaymentFormData,
+} from './addCustomerFlowTypes';
 
 export interface AddCustomerFlowProps {
   open: boolean;
@@ -57,27 +29,10 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
-  const [customerData, setCustomerData] = useState<CustomerFormData>({
-    name: '',
-    phone: '',
-    isWhatsApp: false
-  });
-  const [measurementData, setMeasurementData] = useState<MeasurementFormData>({
-    type: 'shirt',
-    values: {}
-  });
-  const [orderData, setOrderData] = useState<OrderFormData>({
-    items: [],
-    dueDate: '',
-    status: 'pending',
-    notes: ''
-  });
-  const [paymentData, setPaymentData] = useState<PaymentFormData>({
-    totalAmount: 0,
-    advanceAmount: 0,
-    balanceAmount: 0,
-    paymentMethod: 'cash'
-  });
+  const [customerData, setCustomerData] = useState<CustomerFormData>({ name: '', phone: '', isWhatsApp: false });
+  const [measurementData, setMeasurementData] = useState<MeasurementFormData>({ type: 'shirt', values: {} });
+  const [orderData, setOrderData] = useState<OrderFormData>({ items: [], dueDate: '', status: 'pending', notes: '' });
+  const [paymentData, setPaymentData] = useState<PaymentFormData>({ totalAmount: 0, advanceAmount: 0, balanceAmount: 0, paymentMethod: 'cash' });
   const [savedCustomerId, setSavedCustomerId] = useState<string | null>(null);
   const [saveInProgress, setSaveInProgress] = useState(false);
   const [skipToFinish, setSkipToFinish] = useState(false);
@@ -186,9 +141,8 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         }
         
         if (orderData.items.length > 0) {
-          // Map the items to include an id for each item to match the OrderItem type
           const orderItems = orderData.items.map(item => ({
-            id: crypto.randomUUID(), // Generate a unique ID for each item
+            id: crypto.randomUUID(),
             ...item
           }));
 
@@ -351,69 +305,18 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     }
   };
 
-  const variants = {
-    enter: (direction: 'forward' | 'backward') => ({
-      x: direction === 'forward' ? 300 : -300,
-      opacity: 0,
-      rotateY: direction === 'forward' ? 45 : -45,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      rotateY: 0,
-    },
-    exit: (direction: 'forward' | 'backward') => ({
-      x: direction === 'forward' ? -300 : 300,
-      opacity: 0,
-      rotateY: direction === 'forward' ? -45 : 45,
-    }),
-  };
-
   return (
     <div className="bg-background border rounded-lg shadow-lg w-full overflow-hidden">
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold">
-              {step === 1 ? "Add New Customer" : 
-               step === 2 ? (existingCustomer ? "Edit Customer" : "Customer Details") : 
-               step === 3 ? "Measurements" : 
-               step === 4 ? "Create Order" : 
-               step === 5 ? "Payment Details" : "Customer Added"}
-            </h2>
-            {step < 6 && (
-              <div className="mt-1 flex space-x-2">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <div 
-                    key={s}
-                    className={`h-1.5 rounded-full w-12 ${
-                      s === step ? 'bg-primary' : 
-                      s < step ? 'bg-primary/70' : 'bg-gray-200'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
+            <AddCustomerStepTitle step={step} existingCustomer={!!existingCustomer} />
+            {step < 6 && <AddCustomerStepProgress step={step} />}
           </div>
         </div>
-        
-        <AnimatePresence custom={direction} mode="wait">
-          <motion.div
-            key={step}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{
-              x: { type: "spring", stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 },
-              rotateY: { duration: 0.4 }
-            }}
-          >
-            {renderStep()}
-          </motion.div>
-        </AnimatePresence>
+        <AddCustomerStepAnimator step={step} direction={direction}>
+          {renderStep()}
+        </AddCustomerStepAnimator>
       </div>
     </div>
   );
