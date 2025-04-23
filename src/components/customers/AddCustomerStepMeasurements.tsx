@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MeasurementFormData } from './AddCustomerFlow';
+import { MeasurementFormData } from './addCustomerFlowTypes';
 import { Scissors } from 'lucide-react';
 
 interface AddCustomerStepMeasurementsProps {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
 import { AddCustomerStepInfo } from './AddCustomerStepInfo';
@@ -113,6 +114,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         address: customerData.address,
         notes: customerData.notes,
         profilePicture: customerData.profilePicture,
+        isWhatsApp: customerData.isWhatsApp,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -213,7 +215,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           phone: foundCustomer.phone,
           email: foundCustomer.email,
           address: foundCustomer.address,
-          isWhatsApp,
+          isWhatsApp: foundCustomer.isWhatsApp || isWhatsApp,
           profilePicture: foundCustomer.profilePicture,
           notes: foundCustomer.notes
         });
@@ -239,6 +241,11 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         variant: "destructive"
       });
     }
+  };
+
+  const handleSkipOrder = async () => {
+    // Save the customer data without creating an order
+    await handleSaveCustomer();
   };
 
   const renderStep = () => {
@@ -276,9 +283,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             setOrderData={setOrderData}
             onNext={goToNextStep}
             onBack={goToPreviousStep}
-            onSkip={() => {
-              handleSaveCustomer();
-            }}
+            onSkip={handleSkipOrder}
           />
         );
       case 5:

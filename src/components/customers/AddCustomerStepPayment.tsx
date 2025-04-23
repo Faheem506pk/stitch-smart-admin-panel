@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OrderFormData, PaymentFormData } from './AddCustomerFlow';
+import { OrderFormData, PaymentFormData } from './addCustomerFlowTypes';
 import { DollarSign } from 'lucide-react';
 
 interface AddCustomerStepPaymentProps {

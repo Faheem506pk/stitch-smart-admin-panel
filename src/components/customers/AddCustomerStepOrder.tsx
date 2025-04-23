@@ -15,7 +15,7 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { OrderFormData } from './AddCustomerFlow';
+import { OrderFormData } from './addCustomerFlowTypes';
 import { Plus, Trash2, FileText } from 'lucide-react';
 
 interface AddCustomerStepOrderProps {

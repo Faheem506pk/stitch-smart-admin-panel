@@ -66,6 +66,7 @@ export interface Customer {
   address?: string;
   profilePicture?: string;
   notes?: string;
+  isWhatsApp?: boolean;
   createdAt: string;
   updatedAt: string;
 }
