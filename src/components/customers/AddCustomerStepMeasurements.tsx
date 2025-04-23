@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MeasurementFormData } from './addCustomerFlowTypes';
+import { customerService } from '@/services/customerService';
+import { useToast } from '@/hooks/use-toast';
 import { Scissors } from 'lucide-react';
 
 interface AddCustomerStepMeasurementsProps {
@@ -19,6 +20,9 @@ interface AddCustomerStepMeasurementsProps {
   setMeasurementData: React.Dispatch<React.SetStateAction<MeasurementFormData>>;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
+  customerId?: string;
+  isExisting: boolean;
 }
 
 // Measurement fields for different garment types
@@ -68,8 +72,14 @@ export function AddCustomerStepMeasurements({
   measurementData, 
   setMeasurementData, 
   onNext, 
-  onBack 
+  onBack,
+  onSkip,
+  customerId,
+  isExisting
 }: AddCustomerStepMeasurementsProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+  
   const handleTypeChange = (type: 'shirt' | 'pant' | 'suit' | 'dress' | 'other') => {
     setMeasurementData(prev => ({ 
       ...prev, 
@@ -90,6 +100,42 @@ export function AddCustomerStepMeasurements({
         [id]: value === '' ? undefined : numValue
       }
     }));
+  };
+
+  const handleNext = async () => {
+    // Check if any measurements have been entered
+    const hasMeasurements = Object.keys(measurementData.values).length > 0;
+    
+    if (hasMeasurements && isExisting && customerId) {
+      setIsSaving(true);
+      try {
+        // Save measurements to Firebase
+        await customerService.addMeasurement({
+          customerId: customerId,
+          type: measurementData.type,
+          values: measurementData.values,
+          notes: measurementData.notes,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        toast({
+          title: "Success",
+          description: "Measurements saved successfully"
+        });
+      } catch (error) {
+        console.error("Error saving measurements:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save measurements",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }
+    
+    onNext();
   };
 
   // Check if any measurements have been entered
@@ -149,14 +195,15 @@ export function AddCustomerStepMeasurements({
       </div>
       
       <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving}>
           Back
         </Button>
         <Button 
-          onClick={onNext}
+          onClick={handleNext}
           className="px-6"
+          disabled={isSaving}
         >
-          {hasMeasurements ? "Next" : "Skip Measurements"}
+          {isSaving ? "Saving..." : hasMeasurements ? "Next" : "Skip Measurements"}
         </Button>
       </div>
     </div>

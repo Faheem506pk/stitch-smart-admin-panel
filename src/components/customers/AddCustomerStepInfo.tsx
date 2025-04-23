@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CustomerFormData } from './addCustomerFlowTypes';
+import { customerService } from '@/services/customerService';
+import { useToast } from '@/hooks/use-toast';
 import { Camera, User, Mail, MapPin, FileText } from 'lucide-react';
 
 interface AddCustomerStepInfoProps {
@@ -24,6 +26,8 @@ export function AddCustomerStepInfo({
   isExisting
 }: AddCustomerStepInfoProps) {
   const [profileImage, setProfileImage] = useState<string | null>(customerData.profilePicture || null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,6 +44,56 @@ export function AddCustomerStepInfo({
   
   const handleWhatsAppChange = (checked: boolean) => {
     setCustomerData(prev => ({ ...prev, isWhatsApp: checked }));
+  };
+
+  const handleNext = async () => {
+    if (!customerData.name || !customerData.phone) {
+      toast({
+        title: "Error",
+        description: "Please fill in required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      if (isExisting) {
+        // If existing customer, save the updated info to Firebase
+        await customerService.updateCustomer(customerData.id || "", {
+          name: customerData.name,
+          phone: customerData.phone,
+          email: customerData.email,
+          address: customerData.address,
+          notes: customerData.notes,
+          profilePicture: customerData.profilePicture,
+          isWhatsApp: customerData.isWhatsApp,
+          updatedAt: new Date().toISOString()
+        });
+        toast({
+          title: "Success",
+          description: "Customer information updated successfully"
+        });
+      } else {
+        // For new customers, we'll save the complete record at the end of the flow
+        toast({
+          title: "Info",
+          description: "Customer information will be saved at the end of the process"
+        });
+      }
+      
+      onNext();
+    } catch (error) {
+      console.error("Error saving customer info:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save customer information",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -154,14 +208,14 @@ export function AddCustomerStepInfo({
       </div>
       
       <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving}>
           Back
         </Button>
         <Button 
-          onClick={onNext}
-          disabled={!customerData.name || !customerData.phone}
+          onClick={handleNext}
+          disabled={!customerData.name || !customerData.phone || isSaving}
         >
-          Next
+          {isSaving ? "Saving..." : "Next"}
         </Button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { OrderFormData, PaymentFormData } from './addCustomerFlowTypes';
 import { DollarSign } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface AddCustomerStepPaymentProps {
   paymentData: PaymentFormData;
@@ -30,6 +31,8 @@ export function AddCustomerStepPayment({
   onBack,
   isSaving
 }: AddCustomerStepPaymentProps) {
+  const { toast } = useToast();
+  
   // Calculate total order amount based on items
   useEffect(() => {
     const total = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -47,6 +50,20 @@ export function AddCustomerStepPayment({
       advanceAmount: advance,
       balanceAmount: prev.totalAmount - advance
     }));
+  };
+
+  const handleComplete = async () => {
+    if (paymentData.advanceAmount > paymentData.totalAmount) {
+      toast({
+        title: "Error",
+        description: "Advance amount cannot be greater than total amount",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Call parent's onComplete function to save data to Firebase
+    onComplete();
   };
   
   return (
@@ -138,7 +155,7 @@ export function AddCustomerStepPayment({
           Back
         </Button>
         <Button 
-          onClick={onComplete}
+          onClick={handleComplete}
           disabled={isSaving}
         >
           {isSaving ? "Saving..." : "Complete"}

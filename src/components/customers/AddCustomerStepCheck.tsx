@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { customerService } from '@/services/customerService';
 import { Phone } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface AddCustomerStepCheckProps {
   onCheck: (phone: string, isWhatsApp: boolean) => void;
@@ -15,13 +17,36 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
   const [phone, setPhone] = useState('');
   const [isWhatsApp, setIsWhatsApp] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const { toast } = useToast();
 
   const handleCheck = async () => {
-    if (!phone) return;
+    if (!phone) {
+      toast({
+        title: "Error",
+        description: "Please enter a phone number",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsChecking(true);
-    await onCheck(phone, isWhatsApp);
-    setIsChecking(false);
+    
+    try {
+      // Check if customer exists in Firebase
+      const existingCustomer = await customerService.getCustomerByPhone(phone);
+      
+      // Pass result to parent component
+      await onCheck(phone, isWhatsApp);
+    } catch (error) {
+      console.error("Error checking customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to check customer. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (

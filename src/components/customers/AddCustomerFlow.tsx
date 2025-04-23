@@ -211,6 +211,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       if (foundCustomer) {
         setExistingCustomer(foundCustomer);
         setCustomerData({
+          id: foundCustomer.id,
           name: foundCustomer.name,
           phone: foundCustomer.phone,
           email: foundCustomer.email,
@@ -248,6 +249,10 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     await handleSaveCustomer();
   };
 
+  const handleSkipMeasurements = () => {
+    goToNextStep();
+  };
+
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -274,6 +279,9 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             setMeasurementData={setMeasurementData}
             onNext={goToNextStep}
             onBack={goToPreviousStep}
+            onSkip={handleSkipMeasurements}
+            customerId={existingCustomer?.id}
+            isExisting={!!existingCustomer}
           />
         );
       case 4:

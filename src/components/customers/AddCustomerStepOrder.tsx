@@ -15,8 +15,17 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { OrderFormData } from './addCustomerFlowTypes';
-import { Plus, Trash2, FileText } from 'lucide-react';
+import { format } from "date-fns";
+import { Plus, Trash2, FileText, CalendarIcon } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import { useToast } from '@/hooks/use-toast';
 
 interface AddCustomerStepOrderProps {
   orderData: OrderFormData;
@@ -34,6 +43,10 @@ export function AddCustomerStepOrder({
   onSkip
 }: AddCustomerStepOrderProps) {
   const [showOrderForm, setShowOrderForm] = useState(orderData.items.length > 0);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    orderData.dueDate ? new Date(orderData.dueDate) : undefined
+  );
+  const { toast } = useToast();
   
   const addNewItem = () => {
     setOrderData(prev => ({
@@ -73,6 +86,35 @@ export function AddCustomerStepOrder({
     }
   };
 
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (date) {
+      setOrderData(prev => ({
+        ...prev,
+        dueDate: format(date, 'yyyy-MM-dd')
+      }));
+    }
+  };
+
+  const handleSkip = () => {
+    // Close the modal by calling onSkip
+    onSkip();
+  };
+
+  const handleNext = () => {
+    // Validate order data
+    if (orderData.items.length === 0 || !orderData.dueDate) {
+      toast({
+        title: "Error",
+        description: "Please add at least one item and select a due date",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    onNext();
+  };
+
   return (
     <div className="space-y-4">
       {!showOrderForm ? (
@@ -84,7 +126,7 @@ export function AddCustomerStepOrder({
               Would you like to create an order for this customer now? You can also create orders later.
             </p>
             <div className="flex justify-center gap-3 pt-4">
-              <Button variant="outline" onClick={onSkip}>
+              <Button variant="outline" onClick={handleSkip}>
                 Skip for Now
               </Button>
               <Button onClick={handleAddOrder}>
@@ -205,12 +247,29 @@ export function AddCustomerStepOrder({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={orderData.dueDate}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, dueDate: e.target.value }))}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="space-y-2">
@@ -251,7 +310,7 @@ export function AddCustomerStepOrder({
               Back
             </Button>
             <Button 
-              onClick={onNext}
+              onClick={handleNext}
               disabled={orderData.items.length === 0 || !orderData.dueDate}
             >
               Next
