@@ -94,8 +94,8 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       const customerToSave = {
         name: customerData.name,
         phone: customerData.phone,
-        email: customerData.email,
-        address: customerData.address,
+        email: customerData.email ?? null,
+        address: customerData.address ?? null,
         notes: customerData.notes ?? null,
         profilePicture: customerData.profilePicture ?? null, // ✅ Fix here
         isWhatsApp: customerData.isWhatsApp,
