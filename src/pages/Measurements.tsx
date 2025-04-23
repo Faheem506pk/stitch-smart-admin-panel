@@ -49,12 +49,12 @@ const Measurements = () => {
                 
                 <div className="border rounded-md h-[300px] overflow-y-auto">
                   <div className="p-2 hover:bg-accent cursor-pointer">
-                    <p className="font-medium">John Doe</p>
-                    <p className="text-sm text-muted-foreground">john@example.com</p>
+                    <p className="font-medium">Ahmed Khan</p>
+                    <p className="text-sm text-muted-foreground">Ahmed@example.com</p>
                   </div>
                   <div className="p-2 hover:bg-accent cursor-pointer">
-                    <p className="font-medium">Jane Smith</p>
-                    <p className="text-sm text-muted-foreground">jane@example.com</p>
+                    <p className="font-medium">Bilal Ahmed</p>
+                    <p className="text-sm text-muted-foreground">Ahmed@example.com</p>
                   </div>
                 </div>
               </div>

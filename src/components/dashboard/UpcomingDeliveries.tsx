@@ -4,40 +4,44 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 // Sample data for upcoming deliveries
 const deliveries = [
   {
     id: "DEL-1234",
-    customer: "John Smith",
+    customer: "Ahmed Khan",
     item: "Custom Suit",
     date: "2023-04-20",
     daysLeft: 1,
   },
   {
     id: "DEL-1235",
-    customer: "Emma Johnson",
+    customer: "Ayesha Malik",
     item: "Wedding Dress",
     date: "2023-04-22",
     daysLeft: 3,
   },
   {
     id: "DEL-1236",
-    customer: "Michael Brown",
+    customer: "Bilal Ahmed",
     item: "Formal Shirt",
     date: "2023-04-25",
     daysLeft: 6,
   },
 ];
 
+
 export function UpcomingDeliveries() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Upcoming Deliveries</CardTitle>
+        <Link to="/delivery">
         <Button variant="outline" size="sm">
           View All
         </Button>
+        </Link>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

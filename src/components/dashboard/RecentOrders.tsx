@@ -11,12 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom"; 
 
 // Sample data for recent orders
 const recentOrders = [
   {
     id: "ORD-1234",
-    customer: "John Smith",
+    customer: "Ahmed Khan",
     item: "Custom Suit",
     status: "pending",
     date: "2023-04-15",
@@ -24,7 +25,7 @@ const recentOrders = [
   },
   {
     id: "ORD-1235",
-    customer: "Emma Johnson",
+    customer: "Ayesha Malik",
     item: "Wedding Dress",
     status: "stitching",
     date: "2023-04-14",
@@ -32,7 +33,7 @@ const recentOrders = [
   },
   {
     id: "ORD-1236",
-    customer: "Michael Brown",
+    customer: "Bilal Ahmed",
     item: "Formal Shirt",
     status: "ready",
     date: "2023-04-13",
@@ -40,7 +41,7 @@ const recentOrders = [
   },
   {
     id: "ORD-1237",
-    customer: "Sarah Wilson",
+    customer: "Fatima Zahra",
     item: "Evening Gown",
     status: "delivered",
     date: "2023-04-12",
@@ -48,13 +49,14 @@ const recentOrders = [
   },
   {
     id: "ORD-1238",
-    customer: "David Lee",
+    customer: "Usman Tariq",
     item: "Dress Pants",
     status: "pending",
     date: "2023-04-11",
     price: "$95.00",
   },
 ];
+
 
 const StatusBadgeMap = {
   pending: {
@@ -80,9 +82,11 @@ export function RecentOrders() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Recent Orders</CardTitle>
-        <Button variant="outline" size="sm">
+        <Link to="/delivery">
+        <Button variant="outline" size="sm" >
           View All
         </Button>
+        </Link>
       </CardHeader>
       <CardContent>
         <Table>
