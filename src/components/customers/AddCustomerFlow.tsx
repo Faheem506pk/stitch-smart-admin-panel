@@ -96,7 +96,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
         phone: customerData.phone,
         email: customerData.email,
         address: customerData.address,
-        notes: customerData.notes,
+        notes: customerData.notes ?? null,
         profilePicture: customerData.profilePicture ?? null, // ✅ Fix here
         isWhatsApp: customerData.isWhatsApp,
         createdAt: new Date().toISOString(),
