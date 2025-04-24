@@ -171,14 +171,14 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-bold px-4">
               {step === 1 ? "Check Customer" : existingCustomer ? "Update Customer" : "Add New Customer"}
             </h2>
           </div>
         </div>
         
         <ScrollArea className="h-[60vh] pr-4">
-          <div className="pr-4">
+          <div className="px-4">
             <AddCustomerStepAnimator step={step} direction={direction}>
               {renderStep()}
             </AddCustomerStepAnimator>
