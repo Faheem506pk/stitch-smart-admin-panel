@@ -14,6 +14,22 @@ import { CustomMeasurementField, CustomMeasurementType } from "@/types/measureme
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FirebaseConfig } from "@/services/firebase";
+
+const defaultFirebaseConfig: FirebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+const defaultCloudinaryConfig = {
+  cloudName: "",
+  apiKey: "",
+  uploadPreset: ""
+};
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
@@ -30,6 +46,8 @@ const Settings = () => {
   const [newFieldType, setNewFieldType] = useState<'number' | 'text'>('number');
   const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig>(defaultFirebaseConfig);
+  const [cloudinaryConfig, setCloudinaryConfig] = useState(defaultCloudinaryConfig);
 
   useEffect(() => {
     const storedFirebaseConfig = getFirebaseConfig();
