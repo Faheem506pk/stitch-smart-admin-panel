@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -15,6 +16,18 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <script>
+      // Handle errors for third-party scripts
+      window.addEventListener('error', function(e) {
+        // Only log errors for CDN scripts
+        if (e.target && e.target.src && e.target.src.includes('cdnjs.cloudflare.com')) {
+          console.warn('A third-party script failed to load:', e.target.src);
+          // Prevent the error from affecting the app
+          e.preventDefault();
+        }
+      }, true);
+    </script>
   </head>
 
   <body>
