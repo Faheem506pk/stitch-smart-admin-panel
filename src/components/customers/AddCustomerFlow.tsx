@@ -8,6 +8,7 @@ import { customerService } from '@/services/customerService';
 import { toast } from "sonner";
 import { CustomerFormData } from './addCustomerFlowTypes';
 import { MeasurementManager } from '@/components/measurements/MeasurementManager';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface AddCustomerFlowProps {
   open: boolean;
@@ -176,21 +177,26 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             </h2>
           </div>
         </div>
-        <AddCustomerStepAnimator step={step} direction={direction}>
-          {renderStep()}
-        </AddCustomerStepAnimator>
         
-        {/* Show measurements if we found an existing customer */}
-        {existingCustomer && (
-          <div className="mt-6 pt-6 border-t">
-            <h3 className="text-lg font-medium mb-4">Customer Measurements</h3>
-            {measurements.length > 0 ? (
-              <MeasurementManager customerId={existingCustomer.id} initialMeasurements={measurements} />
-            ) : (
-              <p className="text-muted-foreground">No measurements found for this customer.</p>
+        <ScrollArea className="h-[calc(70vh-120px)]">
+          <div className="pr-4">
+            <AddCustomerStepAnimator step={step} direction={direction}>
+              {renderStep()}
+            </AddCustomerStepAnimator>
+            
+            {/* Show measurements if we found an existing customer */}
+            {existingCustomer && (
+              <div className="mt-6 pt-6 border-t">
+                <h3 className="text-lg font-medium mb-4">Customer Measurements</h3>
+                {measurements.length > 0 ? (
+                  <MeasurementManager customerId={existingCustomer.id} initialMeasurements={measurements} />
+                ) : (
+                  <p className="text-muted-foreground">No measurements found for this customer.</p>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </ScrollArea>
       </div>
     </div>
   );
