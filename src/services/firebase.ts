@@ -3,7 +3,8 @@ import { initializeApp, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, getDocs, updateDoc, doc, 
   deleteDoc, query, where, onSnapshot, Firestore, DocumentData, 
-  orderBy, getDoc 
+  orderBy, getDoc, 
+  setDoc
 } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
@@ -101,6 +102,40 @@ export const firestoreService = {
   isFirebaseInitialized: () => {
     return isFirebaseInitialized();
   },
+
+  // Add these two new methods to the firestoreService object
+
+// Check if document exists
+documentExists: async (collectionName: string, docId: string): Promise<boolean> => {
+  if (!isFirebaseInitialized() || !db) return false;
+  
+  try {
+    const docRef = doc(db, collectionName, docId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists();
+  } catch (error) {
+    console.error(`Error checking if document exists in ${collectionName}:`, error);
+    return false;
+  }
+},
+
+// Add document with specific ID
+addDocumentWithId: async (collectionName: string, docId: string, data: any) => {
+  if (!isFirebaseInitialized() || !db) return null;
+  
+  try {
+    const docRef = doc(db, collectionName, docId);
+    await setDoc(docRef, {
+      ...data,
+      createdAt: data.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    return docId;
+  } catch (error) {
+    console.error(`Error adding document with ID to ${collectionName}:`, error);
+    throw error;
+  }
+},
 
   // Add document to collection
   addDocument: async (collectionName: string, data: any) => {

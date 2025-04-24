@@ -135,24 +135,39 @@ const Settings = () => {
     toast.success('Currency symbol updated successfully!');
   };
 
+  
   const addMeasurementType = async () => {
     if (!newTypeName.trim()) {
       toast.error('Please enter a type name');
       return;
     }
 
-    const newType: CustomMeasurementType = {
-      id: crypto.randomUUID(),
-      name: newTypeName,
-      fields: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
     try {
       if (firestoreService.isFirebaseInitialized()) {
-        await firestoreService.addDocument('measurementTypes', newType);
+        // Create a new measurement type without specifying an ID first
+        // Let Firestore generate the document ID
+        const newType = {
+          name: newTypeName,
+          fields: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Add the document to Firestore and get the generated ID
+        const docRef = await firestoreService.addDocument('measurementTypes', newType);
+        
+        // Log success with the new document ID
+        console.log(`Added new measurement type with ID: ${docRef.id}`);
       } else {
+        // For local storage, we still need to generate a client-side ID
+        const newType: CustomMeasurementType = {
+          id: crypto.randomUUID(),
+          name: newTypeName,
+          fields: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
         const updatedTypes = [...measurementTypes, newType];
         localStorage.setItem('measurement_types', JSON.stringify(updatedTypes));
         setMeasurementTypes(updatedTypes);
@@ -161,7 +176,7 @@ const Settings = () => {
       setNewTypeName('');
       setIsAddTypeDialogOpen(false);
       toast.success('Measurement type added successfully!');
-      fetchMeasurementTypes();
+      fetchMeasurementTypes(); // Refresh the list
     } catch (error) {
       console.error('Error adding measurement type:', error);
       toast.error('Failed to add measurement type');
@@ -174,26 +189,28 @@ const Settings = () => {
       toast.error('Please enter a field name');
       return;
     }
-
+  
     const selectedType = measurementTypes.find(type => type.id === selectedTypeId);
     if (!selectedType) return;
-
+  
     const newField: CustomMeasurementField = {
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID(), // ID for the field is OK to generate client-side
       label: newFieldName,
       type: newFieldType,
       required: newFieldRequired
     };
-
+  
     const updatedType = {
       ...selectedType,
       fields: [...selectedType.fields, newField],
       updatedAt: new Date().toISOString()
     };
-
+  
     try {
       if (firestoreService.isFirebaseInitialized()) {
+        // Simply update the document using its existing ID
         await firestoreService.updateDocument('measurementTypes', selectedTypeId, updatedType);
+        console.log(`Updated measurement type ${selectedType.name} with new field ${newFieldName}`);
       } else {
         const updatedTypes = measurementTypes.map(type => 
           type.id === selectedTypeId ? updatedType : type
@@ -261,7 +278,6 @@ const Settings = () => {
       toast.error('Failed to delete measurement type');
     }
   };
-
   return (
     <Layout>
       <div className="flex flex-col gap-6">
