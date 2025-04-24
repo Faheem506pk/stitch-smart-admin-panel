@@ -6,7 +6,7 @@ import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
-// Sample data for upcoming deliveries
+// Sample data for upcoming deliveries with Pakistani names
 const deliveries = [
   {
     id: "DEL-1234",
@@ -53,7 +53,7 @@ export function UpcomingDeliveries() {
               <div className="space-y-1">
                 <p className="font-medium leading-none">{delivery.customer}</p>
                 <p className="text-sm text-muted-foreground">
-                  {delivery.item}
+                  {delivery.item} • <span className="font-medium">Rs. {Math.floor(Math.random() * 5000) + 2000}</span>
                 </p>
               </div>
               <div className="flex items-center gap-3">

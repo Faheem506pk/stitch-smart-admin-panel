@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Database, FileText, User, Cloud } from "lucide-react";
+import { Settings as SettingsIcon, Database, FileText, User, Cloud, Image } from "lucide-react";
 import { useState, useEffect } from "react";
-import { googleDriveService } from "@/services/googleDriveService";
+import { cloudinaryService } from "@/services/cloudinaryService";
+import { initializeFirebase, getFirebaseConfig, storeFirebaseConfig } from "@/services/firebase";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
@@ -26,22 +27,23 @@ const Settings = () => {
     appId: ""
   });
 
-  // Google Drive configuration state
-  const [googleDriveConfig, setGoogleDriveConfig] = useState({
-    clientId: googleDriveService.getConfig().clientId || "",
-    apiKey: ""
+  // Cloudinary configuration state
+  const [cloudinaryConfig, setCloudinaryConfig] = useState({
+    cloudName: cloudinaryService.getConfig().cloudName || "",
+    apiKey: cloudinaryService.getConfig().apiKey || "",
+    uploadPreset: "stitchsmart"
   });
 
   useEffect(() => {
     // Load stored configurations on component mount
-    const storedFirebaseConfig = localStorage.getItem('firebase_config');
+    const storedFirebaseConfig = getFirebaseConfig();
     if (storedFirebaseConfig) {
-      setFirebaseConfig(JSON.parse(storedFirebaseConfig));
+      setFirebaseConfig(storedFirebaseConfig);
     }
     
-    const storedGDriveConfig = localStorage.getItem('gdrive_config');
-    if (storedGDriveConfig) {
-      setGoogleDriveConfig(JSON.parse(storedGDriveConfig));
+    const storedCloudinaryConfig = localStorage.getItem('cloudinary_config');
+    if (storedCloudinaryConfig) {
+      setCloudinaryConfig(JSON.parse(storedCloudinaryConfig));
     }
   }, []);
 
@@ -50,9 +52,9 @@ const Settings = () => {
     setFirebaseConfig(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleGoogleDriveConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCloudinaryConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setGoogleDriveConfig(prev => ({ ...prev, [name]: value }));
+    setCloudinaryConfig(prev => ({ ...prev, [name]: value }));
   };
 
   const checkPin = () => {
@@ -67,25 +69,26 @@ const Settings = () => {
   };
 
   const saveFirebaseConfig = () => {
-    // Save to localStorage
-    localStorage.setItem('firebase_config', JSON.stringify(firebaseConfig));
+    // Save to localStorage and reinitialize Firebase
+    storeFirebaseConfig(firebaseConfig);
+    initializeFirebase(firebaseConfig);
     
-    // In a real implementation, this would also update Firebase configuration
-    alert("Firebase configuration saved!");
+    alert("Firebase configuration saved and reinitialized!");
     setIsEditMode(false);
   };
 
-  const saveGoogleDriveConfig = () => {
+  const saveCloudinaryConfig = () => {
     // Save to localStorage
-    localStorage.setItem('gdrive_config', JSON.stringify(googleDriveConfig));
+    localStorage.setItem('cloudinary_config', JSON.stringify(cloudinaryConfig));
     
-    // Update the GoogleDriveService configuration
-    googleDriveService.updateConfig({
-      clientId: googleDriveConfig.clientId,
-      apiKey: googleDriveConfig.apiKey || undefined
+    // Update the CloudinaryService configuration
+    cloudinaryService.updateConfig({
+      cloudName: cloudinaryConfig.cloudName,
+      apiKey: cloudinaryConfig.apiKey,
+      uploadPreset: cloudinaryConfig.uploadPreset
     });
     
-    alert("Google Drive configuration saved!");
+    alert("Cloudinary configuration saved!");
     setIsEditMode(false);
   };
 
@@ -100,7 +103,7 @@ const Settings = () => {
         </div>
         
         <Tabs defaultValue="general" onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 flex flex-wrap">
             <TabsTrigger value="general">
               <SettingsIcon className="h-4 w-4 mr-2" />
               General
@@ -109,9 +112,9 @@ const Settings = () => {
               <Database className="h-4 w-4 mr-2" />
               Firebase
             </TabsTrigger>
-            <TabsTrigger value="googleDrive">
-              <Cloud className="h-4 w-4 mr-2" />
-              Google Drive
+            <TabsTrigger value="cloudinary">
+              <Image className="h-4 w-4 mr-2" />
+              Cloudinary
             </TabsTrigger>
             <TabsTrigger value="business">
               <FileText className="h-4 w-4 mr-2" />
@@ -139,12 +142,12 @@ const Settings = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="address">Shop Address</Label>
-                  <Input id="address" placeholder="123 Fashion Street" />
+                  <Input id="address" placeholder="123 Fashion Street, Karachi" />
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" placeholder="+1 234 567 8900" />
+                  <Input id="phone" placeholder="+92 300 1234567" />
                 </div>
                 
                 <div className="space-y-2">
@@ -155,6 +158,11 @@ const Settings = () => {
                 <div className="flex items-center space-x-2">
                   <Switch id="darkMode" />
                   <Label htmlFor="darkMode">Dark Mode Default</Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency Symbol</Label>
+                  <Input id="currency" placeholder="Rs." defaultValue="Rs." />
                 </div>
                 
                 <Button>Save Settings</Button>
@@ -278,6 +286,7 @@ const Settings = () => {
                       <Switch 
                         id="enableFirebase"
                         disabled={!isEditMode} 
+                        defaultChecked={true}
                       />
                       <Label htmlFor="enableFirebase">Enable Firebase Integration</Label>
                     </div>
@@ -298,13 +307,13 @@ const Settings = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="googleDrive" className="space-y-4">
+          <TabsContent value="cloudinary" className="space-y-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Google Drive Configuration</CardTitle>
+                  <CardTitle>Cloudinary Configuration</CardTitle>
                   <CardDescription>
-                    Connect your application to Google Drive for image storage.
+                    Connect your application to Cloudinary for image storage.
                   </CardDescription>
                 </div>
                 {!isEditMode && (
@@ -333,26 +342,39 @@ const Settings = () => {
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="clientId">Client ID</Label>
+                      <Label htmlFor="cloudName">Cloud Name</Label>
                       <Input 
-                        id="clientId" 
-                        name="clientId"
-                        value={googleDriveConfig.clientId}
-                        onChange={handleGoogleDriveConfigChange}
-                        placeholder="Your Google Drive Client ID"
+                        id="cloudName" 
+                        name="cloudName"
+                        value={cloudinaryConfig.cloudName}
+                        onChange={handleCloudinaryConfigChange}
+                        placeholder="Your Cloudinary Cloud Name"
                         readOnly={!isEditMode}
                         className={!isEditMode ? "bg-muted" : ""}
                       />
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="apiKey">API Key (Optional)</Label>
+                      <Label htmlFor="apiKey">API Key</Label>
                       <Input 
                         id="apiKey" 
                         name="apiKey"
-                        value={googleDriveConfig.apiKey}
-                        onChange={handleGoogleDriveConfigChange}
-                        placeholder="Your Google API Key"
+                        value={cloudinaryConfig.apiKey}
+                        onChange={handleCloudinaryConfigChange}
+                        placeholder="Your Cloudinary API Key"
+                        readOnly={!isEditMode}
+                        className={!isEditMode ? "bg-muted" : ""}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="uploadPreset">Upload Preset</Label>
+                      <Input 
+                        id="uploadPreset" 
+                        name="uploadPreset"
+                        value={cloudinaryConfig.uploadPreset}
+                        onChange={handleCloudinaryConfigChange}
+                        placeholder="stitchsmart"
                         readOnly={!isEditMode}
                         className={!isEditMode ? "bg-muted" : ""}
                       />
@@ -360,11 +382,11 @@ const Settings = () => {
                     
                     <div className="flex items-center space-x-2">
                       <Switch 
-                        id="enableGoogleDrive"
+                        id="enableCloudinary"
                         disabled={!isEditMode} 
                         defaultChecked={true}
                       />
-                      <Label htmlFor="enableGoogleDrive">Enable Google Drive Integration</Label>
+                      <Label htmlFor="enableCloudinary">Enable Cloudinary Integration</Label>
                     </div>
                     
                     {isEditMode && (
@@ -372,7 +394,7 @@ const Settings = () => {
                         <Button variant="outline" onClick={() => setIsEditMode(false)}>
                           Cancel
                         </Button>
-                        <Button onClick={saveGoogleDriveConfig}>
+                        <Button onClick={saveCloudinaryConfig}>
                           Save Configuration
                         </Button>
                       </div>

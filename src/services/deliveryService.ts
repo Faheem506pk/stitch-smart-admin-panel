@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useStore } from '@/store/useStore';
 
 export interface DeliveryItem {
-  id?: number;
+  id?: string;
   orderId: string;
   orderNumber: string;
   customerId: string;
@@ -26,11 +26,17 @@ export interface DeliveryItem {
 
 const DELIVERY_COLLECTION = 'deliveries';
 
-// Get all delivery items from IndexedDB
+// Get all delivery items from Firebase and fallback to IndexedDB
 export const getDeliveryItems = async (): Promise<DeliveryItem[]> => {
   try {
-    const deliveries = await getAll<DeliveryItem>(STORES.ORDERS);
-    return deliveries.filter(delivery => delivery.status);
+    if (isFirebaseInitialized()) {
+      const deliveries = await firestoreService.getDocuments(DELIVERY_COLLECTION);
+      return deliveries as DeliveryItem[];
+    } else {
+      // Fallback to IndexedDB
+      const deliveries = await getAll<DeliveryItem>(STORES.ORDERS);
+      return deliveries.filter(delivery => delivery.status);
+    }
   } catch (error) {
     console.error('Error fetching delivery items:', error);
     toast.error('Failed to load delivery items');
@@ -41,8 +47,14 @@ export const getDeliveryItems = async (): Promise<DeliveryItem[]> => {
 // Get delivery items by status
 export const getDeliveryItemsByStatus = async (status: string): Promise<DeliveryItem[]> => {
   try {
-    const allDeliveries = await getDeliveryItems();
-    return allDeliveries.filter(delivery => delivery.status === status);
+    if (isFirebaseInitialized()) {
+      const deliveries = await firestoreService.getDocumentsByField(DELIVERY_COLLECTION, 'status', status);
+      return deliveries as DeliveryItem[];
+    } else {
+      // Fallback to IndexedDB filtering
+      const allDeliveries = await getDeliveryItems();
+      return allDeliveries.filter(delivery => delivery.status === status);
+    }
   } catch (error) {
     console.error(`Error fetching ${status} deliveries:`, error);
     toast.error(`Failed to load ${status} deliveries`);
@@ -50,43 +62,88 @@ export const getDeliveryItemsByStatus = async (status: string): Promise<Delivery
   }
 };
 
+// Add a delivery
+export const addDelivery = async (delivery: Omit<DeliveryItem, 'id'>): Promise<DeliveryItem | null> => {
+  try {
+    if (isFirebaseInitialized()) {
+      // Add to Firebase
+      const result = await firestoreService.addDocument(DELIVERY_COLLECTION, delivery);
+      if (result) {
+        toast.success("Delivery added successfully!");
+        return result as DeliveryItem;
+      }
+    } else {
+      // Add to IndexedDB
+      const id = await add(STORES.ORDERS, delivery);
+      if (id) {
+        toast.success("Delivery saved locally. Will sync when online.");
+        return { ...delivery, id: id.toString() };
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error adding delivery:', error);
+    toast.error('Failed to add delivery');
+    return null;
+  }
+};
+
 // Update delivery status
 export const updateDeliveryStatus = async (
-  id: number, 
+  id: string, 
   status: 'pending' | 'in-transit' | 'delivered' | 'cancelled',
-  isOnline: boolean // Pass online status as parameter instead of accessing store directly
+  isOnline: boolean
 ): Promise<boolean> => {
   try {
-    const delivery = await getById<DeliveryItem>(STORES.ORDERS, id);
-    if (!delivery) {
-      toast.error('Delivery not found');
-      return false;
-    }
+    let success = false;
     
-    // Update local IndexedDB
-    const updatedDelivery = {
-      ...delivery,
-      status,
-      updatedAt: new Date().toISOString(),
-      deliveryDate: status === 'delivered' ? new Date().toISOString() : delivery.deliveryDate
-    };
-    
-    await update(STORES.ORDERS, updatedDelivery);
-    
-    // Sync with Firebase if online
     if (isFirebaseInitialized() && isOnline) {
-      await firestoreService.updateDocument(DELIVERY_COLLECTION, String(id), {
+      // Update in Firebase
+      success = await firestoreService.updateDocument(DELIVERY_COLLECTION, id, {
         status,
         updatedAt: new Date().toISOString(),
-        deliveryDate: status === 'delivered' ? new Date().toISOString() : delivery.deliveryDate
+        deliveryDate: status === 'delivered' ? new Date().toISOString() : undefined
       });
+      
+      if (success) {
+        toast.success(`Delivery status updated to ${status}`);
+      }
     } else {
+      // Update in IndexedDB
+      let delivery;
+      
+      try {
+        // Try to get from IndexedDB first
+        delivery = await getById<DeliveryItem>(STORES.ORDERS, id);
+      } catch (error) {
+        console.error('Error fetching from IndexedDB, creating new record for sync');
+      }
+      
+      if (delivery) {
+        const updatedDelivery = {
+          ...delivery,
+          status,
+          updatedAt: new Date().toISOString(),
+          deliveryDate: status === 'delivered' ? new Date().toISOString() : delivery.deliveryDate
+        };
+        
+        await update(STORES.ORDERS, updatedDelivery);
+        success = true;
+      }
+      
       // Mark for sync when online
-      localStorage.setItem(`sync_delivery_${id}`, JSON.stringify(updatedDelivery));
+      localStorage.setItem(`sync_delivery_${id}`, JSON.stringify({
+        id,
+        status,
+        updatedAt: new Date().toISOString(),
+        deliveryDate: status === 'delivered' ? new Date().toISOString() : undefined
+      }));
+      
+      toast.success(`Delivery status updated to ${status} (offline)`);
+      success = true;
     }
     
-    toast.success(`Delivery status updated to ${status}`);
-    return true;
+    return success;
   } catch (error) {
     console.error('Error updating delivery status:', error);
     toast.error('Failed to update delivery status');
@@ -122,6 +179,25 @@ export const syncPendingDeliveryChanges = async (isOnline: boolean): Promise<voi
     console.error('Error syncing pending delivery changes:', error);
     toast.error('Failed to sync some delivery changes');
   }
+};
+
+// Subscribe to deliveries by status
+export const subscribeToDeliveriesByStatus = (
+  status: string, 
+  callback: (deliveries: DeliveryItem[]) => void
+): (() => void) => {
+  if (!isFirebaseInitialized()) {
+    // If Firebase isn't available, return a no-op function
+    callback([]);
+    return () => {};
+  }
+  
+  return firestoreService.subscribeToFilteredCollection(
+    DELIVERY_COLLECTION,
+    data => callback(data as DeliveryItem[]),
+    'status',
+    status
+  );
 };
 
 // Sync deliveries with Firebase

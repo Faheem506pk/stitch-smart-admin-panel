@@ -37,12 +37,24 @@ export const customerService = {
     }
   },
   
+  // Get customer by ID
+  getCustomerById: async (id: string): Promise<Customer | null> => {
+    try {
+      const customers = await firestoreService.getDocuments(CUSTOMER_COLLECTION);
+      const customer = (customers as Customer[]).find(c => c.id === id);
+      return customer || null;
+    } catch (error) {
+      console.error("Error fetching customer by ID:", error);
+      toast.error("Failed to find customer");
+      return null;
+    }
+  },
+  
   // Get customer by phone number
   getCustomerByPhone: async (phone: string): Promise<Customer | null> => {
     try {
-      const customers = await firestoreService.getDocuments(CUSTOMER_COLLECTION);
-      const customer = (customers as Customer[]).find(c => c.phone === phone);
-      return customer || null;
+      const customers = await firestoreService.getDocumentsByField(CUSTOMER_COLLECTION, 'phone', phone);
+      return customers.length > 0 ? customers[0] as Customer : null;
     } catch (error) {
       console.error("Error fetching customer by phone:", error);
       toast.error("Failed to find customer");
@@ -87,6 +99,8 @@ export const customerService = {
     });
   },
 
+  // === MEASUREMENTS SECTION === //
+  
   // Add a measurement
   addMeasurement: async (measurement: Omit<Measurement, 'id'>): Promise<Measurement | null> => {
     try {
@@ -102,6 +116,79 @@ export const customerService = {
       return null;
     }
   },
+  
+  // Get measurements for a customer
+  getCustomerMeasurements: async (customerId: string): Promise<Measurement[]> => {
+    try {
+      const measurements = await firestoreService.getDocumentsByField(MEASUREMENT_COLLECTION, 'customerId', customerId);
+      return measurements as Measurement[];
+    } catch (error) {
+      console.error("Error fetching customer measurements:", error);
+      toast.error("Failed to load measurements");
+      return [];
+    }
+  },
+  
+  // Get latest measurement for a customer by type
+  getLatestCustomerMeasurement: async (customerId: string, type: string): Promise<Measurement | null> => {
+    try {
+      const measurements = await firestoreService.getDocumentsByField(MEASUREMENT_COLLECTION, 'customerId', customerId);
+      const typeMeasurements = (measurements as Measurement[]).filter(m => m.type === type);
+      
+      if (typeMeasurements.length === 0) return null;
+      
+      // Sort by date descending
+      return typeMeasurements.sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )[0];
+    } catch (error) {
+      console.error("Error fetching latest measurement:", error);
+      toast.error("Failed to load measurement");
+      return null;
+    }
+  },
+  
+  // Update measurement
+  updateMeasurement: async (id: string, data: Partial<Measurement>): Promise<boolean> => {
+    try {
+      const success = await firestoreService.updateDocument(MEASUREMENT_COLLECTION, id, data);
+      if (success) {
+        toast.success("Measurement updated successfully!");
+      }
+      return success;
+    } catch (error) {
+      console.error("Error updating measurement:", error);
+      toast.error("Failed to update measurement");
+      return false;
+    }
+  },
+  
+  // Delete measurement
+  deleteMeasurement: async (id: string): Promise<boolean> => {
+    try {
+      const success = await firestoreService.deleteDocument(MEASUREMENT_COLLECTION, id);
+      if (success) {
+        toast.success("Measurement deleted successfully!");
+      }
+      return success;
+    } catch (error) {
+      console.error("Error deleting measurement:", error);
+      toast.error("Failed to delete measurement");
+      return false;
+    }
+  },
+  
+  // Subscribe to customer measurements
+  subscribeToCustomerMeasurements: (customerId: string, callback: (measurements: Measurement[]) => void) => {
+    return firestoreService.subscribeToFilteredCollection(
+      MEASUREMENT_COLLECTION,
+      data => callback(data as Measurement[]),
+      'customerId',
+      customerId
+    );
+  },
+
+  // === ORDERS SECTION === //
 
   // Add an order
   addOrder: async (order: Omit<Order, 'id'>): Promise<Order | null> => {
@@ -118,6 +205,69 @@ export const customerService = {
       return null;
     }
   },
+  
+  // Get orders for a customer
+  getCustomerOrders: async (customerId: string): Promise<Order[]> => {
+    try {
+      const orders = await firestoreService.getDocumentsByField(ORDER_COLLECTION, 'customerId', customerId);
+      return orders as Order[];
+    } catch (error) {
+      console.error("Error fetching customer orders:", error);
+      toast.error("Failed to load orders");
+      return [];
+    }
+  },
+  
+  // Update order
+  updateOrder: async (id: string, data: Partial<Order>): Promise<boolean> => {
+    try {
+      const success = await firestoreService.updateDocument(ORDER_COLLECTION, id, data);
+      if (success) {
+        toast.success("Order updated successfully!");
+      }
+      return success;
+    } catch (error) {
+      console.error("Error updating order:", error);
+      toast.error("Failed to update order");
+      return false;
+    }
+  },
+  
+  // Delete order
+  deleteOrder: async (id: string): Promise<boolean> => {
+    try {
+      const success = await firestoreService.deleteDocument(ORDER_COLLECTION, id);
+      if (success) {
+        toast.success("Order deleted successfully!");
+      }
+      return success;
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      toast.error("Failed to delete order");
+      return false;
+    }
+  },
+  
+  // Subscribe to all orders
+  subscribeToOrders: (callback: (orders: Order[]) => void) => {
+    return firestoreService.subscribeToOrderedCollection(
+      ORDER_COLLECTION,
+      data => callback(data as Order[]),
+      'createdAt'
+    );
+  },
+  
+  // Subscribe to customer orders
+  subscribeToCustomerOrders: (customerId: string, callback: (orders: Order[]) => void) => {
+    return firestoreService.subscribeToFilteredCollection(
+      ORDER_COLLECTION,
+      data => callback(data as Order[]),
+      'customerId',
+      customerId
+    );
+  },
+
+  // === PAYMENTS SECTION === //
 
   // Add a payment
   addPayment: async (payment: Omit<Payment, 'id'>): Promise<Payment | null> => {
@@ -132,6 +282,18 @@ export const customerService = {
       console.error("Error adding payment:", error);
       toast.error("Failed to record payment");
       return null;
+    }
+  },
+  
+  // Get payments for an order
+  getOrderPayments: async (orderId: string): Promise<Payment[]> => {
+    try {
+      const payments = await firestoreService.getDocumentsByField(PAYMENT_COLLECTION, 'orderId', orderId);
+      return payments as Payment[];
+    } catch (error) {
+      console.error("Error fetching order payments:", error);
+      toast.error("Failed to load payments");
+      return [];
     }
   }
 };

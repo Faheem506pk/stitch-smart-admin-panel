@@ -1,7 +1,7 @@
 
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, query, where, onSnapshot, Firestore, DocumentData, orderBy } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
 export interface FirebaseConfig {
@@ -23,14 +23,19 @@ const defaultFirebaseConfig = {
 };
 
 // Global variables to hold Firebase instances
-let app;
-let db;
-let auth;
-let storage;
+let app: FirebaseApp;
+let db: Firestore;
+let auth: Auth;
+let storage: any;
 
 // Initialize Firebase with configuration
 export const initializeFirebase = (config: FirebaseConfig = defaultFirebaseConfig) => {
   try {
+    // Check if Firebase is already initialized
+    if (app) {
+      console.log("Firebase already initialized, reinitializing with new config");
+    }
+    
     app = initializeApp(config);
     db = getFirestore(app);
     auth = getAuth(app);
@@ -118,6 +123,40 @@ export const firestoreService = {
     }
   },
   
+  // Get documents with ordering
+  getOrderedDocuments: async (collectionName: string, orderByField: string, direction: 'asc' | 'desc' = 'desc') => {
+    if (!isFirebaseInitialized()) return [];
+    
+    try {
+      const q = query(collection(db, collectionName), orderBy(orderByField, direction));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error(`Error getting ordered documents from ${collectionName}:`, error);
+      return [];
+    }
+  },
+  
+  // Get documents by field value
+  getDocumentsByField: async (collectionName: string, field: string, value: any) => {
+    if (!isFirebaseInitialized()) return [];
+    
+    try {
+      const q = query(collection(db, collectionName), where(field, '==', value));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error(`Error getting documents by field from ${collectionName}:`, error);
+      return [];
+    }
+  },
+  
   // Update document in collection
   updateDocument: async (collectionName: string, docId: string, data: any) => {
     if (!isFirebaseInitialized()) return false;
@@ -149,13 +188,69 @@ export const firestoreService = {
   },
   
   // Subscribe to collection changes
-  subscribeToCollection: (collectionName: string, callback: (data: any[]) => void) => {
+  subscribeToCollection: (collectionName: string, callback: (data: DocumentData[]) => void) => {
     if (!isFirebaseInitialized()) {
       callback([]);
       return () => {};
     }
     
     const q = collection(db, collectionName);
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const documents = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(documents);
+    });
+    
+    return unsubscribe;
+  },
+  
+  // Subscribe to collection with ordering
+  subscribeToOrderedCollection: (
+    collectionName: string, 
+    callback: (data: DocumentData[]) => void,
+    orderByField: string,
+    direction: 'asc' | 'desc' = 'desc'
+  ) => {
+    if (!isFirebaseInitialized()) {
+      callback([]);
+      return () => {};
+    }
+    
+    const q = query(
+      collection(db, collectionName),
+      orderBy(orderByField, direction)
+    );
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const documents = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(documents);
+    });
+    
+    return unsubscribe;
+  },
+  
+  // Subscribe to filtered collection
+  subscribeToFilteredCollection: (
+    collectionName: string,
+    callback: (data: DocumentData[]) => void,
+    field: string,
+    value: any
+  ) => {
+    if (!isFirebaseInitialized()) {
+      callback([]);
+      return () => {};
+    }
+    
+    const q = query(
+      collection(db, collectionName),
+      where(field, '==', value)
+    );
+    
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const documents = querySnapshot.docs.map(doc => ({
         id: doc.id,

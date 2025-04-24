@@ -6,14 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CustomerFormData } from './addCustomerFlowTypes';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
 import { User, Mail, MapPin, FileText } from 'lucide-react';
-import { googleDriveService } from '@/services/googleDriveService';
+import { cloudinaryService } from '@/services/cloudinaryService';
 
 interface AddCustomerStepInfoProps {
   customerData: CustomerFormData;
   setCustomerData: React.Dispatch<React.SetStateAction<CustomerFormData>>;
-  onSave: () => void;
+  onSave: () => Promise<boolean>;
   onBack: () => void;
   isExisting: boolean;
   isSaving: boolean;
@@ -29,19 +29,7 @@ export function AddCustomerStepInfo({
 }: AddCustomerStepInfoProps) {
   const [profileImage, setProfileImage] = useState<string | null>(customerData.profilePicture || null);
   const [isUploading, setIsUploading] = useState(false);
-  const { toast } = useToast();
-  // Use this format specifically for Google Drive
-const getGoogleDriveImageUrl = (url) => {
-  // Extract the ID from Google Drive URL
-  if (url?.includes('drive.google.com')) {
-    const match = url.match(/[-\w]{25,}/);
-    if (match && match[0]) {
-      return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1000`;
-    }
-  }
-  return url;
-};
-  
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -55,30 +43,46 @@ const getGoogleDriveImageUrl = (url) => {
         };
         reader.readAsDataURL(file);
         
-        // Upload to Google Drive
-        const imageUrl = await googleDriveService.uploadImage(file);
+        // Upload to Cloudinary
+        const imageUrl = await cloudinaryService.uploadImage(file);
         if (imageUrl) {
           setCustomerData(prev => ({ ...prev, profilePicture: imageUrl }));
-          toast({
-            title: "Success",
-            description: "Profile image uploaded successfully",
-          });
+          toast.success("Profile image uploaded successfully");
         }
       } catch (error) {
         console.error("Error uploading image:", error);
-        toast({
-          title: "Error",
-          description: "Failed to upload image. Please try again.",
-          variant: "destructive"
-        });
+        toast.error("Failed to upload image. Please try again.");
       } finally {
         setIsUploading(false);
       }
     }
   };
   
+  const handleCloudinaryUpload = async () => {
+    setIsUploading(true);
+    try {
+      const imageUrl = await cloudinaryService.openUploadWidget();
+      if (imageUrl) {
+        setProfileImage(imageUrl);
+        setCustomerData(prev => ({ ...prev, profilePicture: imageUrl }));
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
   const handleWhatsAppChange = (checked: boolean) => {
     setCustomerData(prev => ({ ...prev, isWhatsApp: checked }));
+  };
+
+  const handleSaveClick = async () => {
+    const success = await onSave();
+    if (success) {
+      // Continue to next step or close
+    }
   };
 
   const isValid = customerData.name && customerData.phone;
@@ -88,17 +92,16 @@ const getGoogleDriveImageUrl = (url) => {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-shrink-0">
           <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center relative overflow-hidden">
-          {profileImage ? (
-  <img 
-    src={profileImage.startsWith('data:') ? profileImage : getGoogleDriveImageUrl(profileImage)} 
-    alt="Profile" 
-    className="w-full h-full object-cover" 
-    onError={(e) => {
-      console.error("Error loading image:", profileImage);
-      
-    }}
-  />
-)  : (
+            {profileImage ? (
+              <img 
+                src={profileImage} 
+                alt="Profile" 
+                className="w-full h-full object-cover" 
+                onError={() => {
+                  console.error("Error loading image:", profileImage);
+                }}
+              />
+            ) : (
               <User className="h-12 w-12 text-muted-foreground" />
             )}
             <input 
@@ -109,19 +112,32 @@ const getGoogleDriveImageUrl = (url) => {
               onChange={handleFileChange}
               disabled={isUploading}
             />
-            <label 
-              htmlFor="profilePicture"
-              className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
+            <div 
+              className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity"
             >
               {isUploading ? (
                 <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <>
+                  <label 
+                    htmlFor="profilePicture"
+                    className="w-full h-1/2 flex items-center justify-center hover:bg-black/20"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleCloudinaryUpload}
+                    className="w-full h-1/2 flex items-center justify-center hover:bg-black/20 text-xs text-white"
+                  >
+                    Cloudinary
+                  </button>
+                </>
               )}
-            </label>
+            </div>
           </div>
         </div>
         
@@ -215,7 +231,7 @@ const getGoogleDriveImageUrl = (url) => {
           Back
         </Button>
         <Button 
-          onClick={onSave}
+          onClick={handleSaveClick}
           disabled={!isValid || isSaving || isUploading}
         >
           {isSaving ? (

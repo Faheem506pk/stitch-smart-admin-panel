@@ -1,16 +1,108 @@
 
+import { useState, useEffect } from 'react';
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, User, FileText } from "lucide-react";
-import { useState } from "react";
+import { Plus, User, Search } from "lucide-react";
+import { customerService } from '@/services/customerService';
+import { Customer, Measurement } from '@/types/models';
+import { MeasurementManager } from '@/components/measurements/MeasurementManager';
+import { toast } from "sonner";
+import { AddCustomerDialog } from '@/components/customers/AddCustomerDialog';
 
 const Measurements = () => {
   const [measurementType, setMeasurementType] = useState("shirt");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerMeasurements, setCustomerMeasurements] = useState<Measurement[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch customers on component mount
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const allCustomers = await customerService.getCustomers();
+        setCustomers(allCustomers);
+        setFilteredCustomers(allCustomers);
+      } catch (error) {
+        console.error("Error fetching customers:", error);
+        toast.error("Failed to load customers");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Set up subscription
+    const unsubscribe = customerService.subscribeToCustomers((data) => {
+      setCustomers(data);
+      setFilteredCustomers(
+        data.filter(customer => 
+          customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+          customer.phone.includes(customerSearch)
+        )
+      );
+    });
+
+    fetchCustomers();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // Filter customers when search changes
+  useEffect(() => {
+    if (!customerSearch.trim()) {
+      setFilteredCustomers(customers);
+    } else {
+      const filtered = customers.filter(customer => 
+        customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+        customer.phone.includes(customerSearch)
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [customerSearch, customers]);
+
+  // Fetch customer measurements when selected customer changes
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setCustomerMeasurements([]);
+      return;
+    }
+
+    const fetchMeasurements = async () => {
+      try {
+        const measurements = await customerService.getCustomerMeasurements(selectedCustomer.id);
+        setCustomerMeasurements(measurements);
+      } catch (error) {
+        console.error("Error fetching measurements:", error);
+        toast.error("Failed to load measurements");
+      }
+    };
+
+    // Set up subscription for real-time updates
+    const unsubscribe = customerService.subscribeToCustomerMeasurements(
+      selectedCustomer.id,
+      (data) => {
+        setCustomerMeasurements(data);
+      }
+    );
+
+    fetchMeasurements();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [selectedCustomer]);
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+  };
 
   return (
     <Layout>
@@ -22,9 +114,9 @@ const Measurements = () => {
               Record and manage customer measurements.
             </p>
           </div>
-          <Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="mr-2" />
-            Add Measurement
+            Add Customer
           </Button>
         </div>
         
@@ -37,7 +129,7 @@ const Measurements = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="relative">
-                  <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
                     placeholder="Search customers..."
@@ -48,14 +140,26 @@ const Measurements = () => {
                 </div>
                 
                 <div className="border rounded-md h-[300px] overflow-y-auto">
-                  <div className="p-2 hover:bg-accent cursor-pointer">
-                    <p className="font-medium">Ahmed Khan</p>
-                    <p className="text-sm text-muted-foreground">Ahmed@example.com</p>
-                  </div>
-                  <div className="p-2 hover:bg-accent cursor-pointer">
-                    <p className="font-medium">Bilal Ahmed</p>
-                    <p className="text-sm text-muted-foreground">Ahmed@example.com</p>
-                  </div>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : filteredCustomers.length === 0 ? (
+                    <div className="p-2 text-center text-muted-foreground">
+                      No customers found
+                    </div>
+                  ) : (
+                    filteredCustomers.map(customer => (
+                      <div 
+                        key={customer.id}
+                        className={`p-2 hover:bg-accent cursor-pointer ${selectedCustomer?.id === customer.id ? 'bg-accent' : ''}`}
+                        onClick={() => handleCustomerSelect(customer)}
+                      >
+                        <p className="font-medium">{customer.name}</p>
+                        <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -64,112 +168,34 @@ const Measurements = () => {
           {/* Measurement Form */}
           <Card className="md:col-span-3">
             <CardHeader>
-              <CardTitle>Measurement Details</CardTitle>
+              <CardTitle>
+                {selectedCustomer ? `${selectedCustomer.name}'s Measurements` : 'Measurement Details'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="shirt" onValueChange={setMeasurementType}>
-                <TabsList className="mb-4">
-                  <TabsTrigger value="shirt">Shirt</TabsTrigger>
-                  <TabsTrigger value="pant">Pant</TabsTrigger>
-                  <TabsTrigger value="suit">Suit</TabsTrigger>
-                  <TabsTrigger value="dress">Dress</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="shirt" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Neck</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Chest</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Shoulder</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Sleeve Length</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Bicep</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Cuff</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Shirt Length</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Notes</label>
-                    <textarea className="w-full min-h-[100px] p-2 border rounded-md" placeholder="Additional notes..."></textarea>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline">Reset</Button>
-                    <Button>Save Measurements</Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="pant" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Waist</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Hip</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Inseam</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Outseam</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Thigh</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Knee</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Bottom</label>
-                      <Input type="number" placeholder="Inches" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Notes</label>
-                    <textarea className="w-full min-h-[100px] p-2 border rounded-md" placeholder="Additional notes..."></textarea>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline">Reset</Button>
-                    <Button>Save Measurements</Button>
-                  </div>
-                </TabsContent>
-                
-                {/* Similar structure for suit and dress tabs */}
-                <TabsContent value="suit" className="space-y-4">
-                  <p className="text-muted-foreground">Suit measurements form will appear here.</p>
-                </TabsContent>
-                
-                <TabsContent value="dress" className="space-y-4">
-                  <p className="text-muted-foreground">Dress measurements form will appear here.</p>
-                </TabsContent>
-              </Tabs>
+              {selectedCustomer ? (
+                <MeasurementManager 
+                  customerId={selectedCustomer.id}
+                  initialMeasurements={customerMeasurements}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <User className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="font-medium text-lg">No Customer Selected</h3>
+                  <p className="text-muted-foreground mt-1">
+                    Select a customer from the list to view or edit their measurements.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <AddCustomerDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+      />
     </Layout>
   );
 };
