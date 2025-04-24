@@ -68,6 +68,9 @@ export const getFirebaseInstances = () => {
   return { app, db, auth, storage };
 };
 
+// Export the db instance directly so it can be imported in components
+export { db };
+
 // Store Firebase config in localStorage
 export const storeFirebaseConfig = (config: FirebaseConfig) => {
   localStorage.setItem('firebase_config', JSON.stringify(config));
