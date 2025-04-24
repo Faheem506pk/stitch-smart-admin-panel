@@ -74,7 +74,7 @@ export interface Customer {
 export interface Measurement {
   id: string;
   customerId: string;
-  type: 'shirt' | 'pant' | 'suit' | 'dress' | 'other';
+  type: string; // Updated to string to support custom types
   values: {
     [key: string]: number | string;
   };
@@ -102,7 +102,7 @@ export interface Order {
 
 export interface OrderItem {
   id: string;
-  type: 'shirt' | 'pant' | 'suit' | 'dress' | 'other';
+  type: string; // Updated to string to support custom types
   measurementId?: string;
   quantity: number;
   price: number;

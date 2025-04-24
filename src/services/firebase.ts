@@ -1,6 +1,10 @@
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, query, where, onSnapshot, Firestore, DocumentData, orderBy } from 'firebase/firestore';
+import { 
+  getFirestore, collection, addDoc, getDocs, updateDoc, doc, 
+  deleteDoc, query, where, onSnapshot, Firestore, DocumentData, 
+  orderBy, getDoc 
+} from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
@@ -23,10 +27,10 @@ const defaultFirebaseConfig = {
 };
 
 // Global variables to hold Firebase instances
-let app: FirebaseApp;
-let db: Firestore;
-let auth: Auth;
-let storage: any;
+let app: FirebaseApp | null = null;
+let db: Firestore | null = null;
+let auth: Auth | null = null;
+let storage: any = null;
 
 // Initialize Firebase with configuration
 export const initializeFirebase = (config: FirebaseConfig = defaultFirebaseConfig) => {
@@ -55,7 +59,7 @@ initializeFirebase();
 
 // Check if Firebase is initialized
 export const isFirebaseInitialized = () => {
-  return !!app;
+  return !!app && !!db;
 };
 
 // Get Firebase instances (only if initialized)
@@ -93,14 +97,19 @@ export const autoInitializeFirebase = () => {
 
 // Firestore CRUD operations
 export const firestoreService = {
+  // Check if Firebase is initialized
+  isFirebaseInitialized: () => {
+    return isFirebaseInitialized();
+  },
+
   // Add document to collection
   addDocument: async (collectionName: string, data: any) => {
-    if (!isFirebaseInitialized()) return null;
+    if (!isFirebaseInitialized() || !db) return null;
     
     try {
       const result = await addDoc(collection(db, collectionName), {
         ...data,
-        createdAt: new Date().toISOString(),
+        createdAt: data.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
       return { id: result.id, ...data };
@@ -110,9 +119,32 @@ export const firestoreService = {
     }
   },
   
+  // Get document by ID
+  getDocumentById: async (collectionName: string, id: string) => {
+    if (!isFirebaseInitialized() || !db) return null;
+    
+    try {
+      const docRef = doc(db, collectionName, id);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        return {
+          id: docSnap.id,
+          ...docSnap.data()
+        };
+      } else {
+        console.log(`No document found with ID: ${id}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error getting document by ID from ${collectionName}:`, error);
+      return null;
+    }
+  },
+  
   // Get all documents from collection
   getDocuments: async (collectionName: string) => {
-    if (!isFirebaseInitialized()) return [];
+    if (!isFirebaseInitialized() || !db) return [];
     
     try {
       const querySnapshot = await getDocs(collection(db, collectionName));
@@ -128,7 +160,7 @@ export const firestoreService = {
   
   // Get documents with ordering
   getOrderedDocuments: async (collectionName: string, orderByField: string, direction: 'asc' | 'desc' = 'desc') => {
-    if (!isFirebaseInitialized()) return [];
+    if (!isFirebaseInitialized() || !db) return [];
     
     try {
       const q = query(collection(db, collectionName), orderBy(orderByField, direction));
@@ -145,7 +177,7 @@ export const firestoreService = {
   
   // Get documents by field value
   getDocumentsByField: async (collectionName: string, field: string, value: any) => {
-    if (!isFirebaseInitialized()) return [];
+    if (!isFirebaseInitialized() || !db) return [];
     
     try {
       const q = query(collection(db, collectionName), where(field, '==', value));
@@ -162,7 +194,7 @@ export const firestoreService = {
   
   // Update document in collection
   updateDocument: async (collectionName: string, docId: string, data: any) => {
-    if (!isFirebaseInitialized()) return false;
+    if (!isFirebaseInitialized() || !db) return false;
     
     try {
       const docRef = doc(db, collectionName, docId);
@@ -179,7 +211,7 @@ export const firestoreService = {
   
   // Delete document from collection
   deleteDocument: async (collectionName: string, docId: string) => {
-    if (!isFirebaseInitialized()) return false;
+    if (!isFirebaseInitialized() || !db) return false;
     
     try {
       await deleteDoc(doc(db, collectionName, docId));
@@ -192,7 +224,7 @@ export const firestoreService = {
   
   // Subscribe to collection changes
   subscribeToCollection: (collectionName: string, callback: (data: DocumentData[]) => void) => {
-    if (!isFirebaseInitialized()) {
+    if (!isFirebaseInitialized() || !db) {
       callback([]);
       return () => {};
     }
@@ -216,7 +248,7 @@ export const firestoreService = {
     orderByField: string,
     direction: 'asc' | 'desc' = 'desc'
   ) => {
-    if (!isFirebaseInitialized()) {
+    if (!isFirebaseInitialized() || !db) {
       callback([]);
       return () => {};
     }
@@ -244,7 +276,7 @@ export const firestoreService = {
     field: string,
     value: any
   ) => {
-    if (!isFirebaseInitialized()) {
+    if (!isFirebaseInitialized() || !db) {
       callback([]);
       return () => {};
     }

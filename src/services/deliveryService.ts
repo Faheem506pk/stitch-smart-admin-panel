@@ -1,7 +1,7 @@
 
 import { STORES, add, getAll, update, getById, deleteRecord } from '@/lib/indexedDb';
 import { syncWithServer } from '@/lib/indexedDb';
-import { firestoreService, isFirebaseInitialized } from '@/services/firebase';
+import { firestoreService } from '@/services/firebase';
 import { toast } from "sonner";
 
 // Import useStore only for TypeScript types, not for direct usage
@@ -29,7 +29,7 @@ const DELIVERY_COLLECTION = 'deliveries';
 // Get all delivery items from Firebase and fallback to IndexedDB
 export const getDeliveryItems = async (): Promise<DeliveryItem[]> => {
   try {
-    if (isFirebaseInitialized()) {
+    if (firestoreService.isFirebaseInitialized()) {
       const deliveries = await firestoreService.getDocuments(DELIVERY_COLLECTION);
       return deliveries as DeliveryItem[];
     } else {
@@ -47,7 +47,7 @@ export const getDeliveryItems = async (): Promise<DeliveryItem[]> => {
 // Get delivery items by status
 export const getDeliveryItemsByStatus = async (status: string): Promise<DeliveryItem[]> => {
   try {
-    if (isFirebaseInitialized()) {
+    if (firestoreService.isFirebaseInitialized()) {
       const deliveries = await firestoreService.getDocumentsByField(DELIVERY_COLLECTION, 'status', status);
       return deliveries as DeliveryItem[];
     } else {
@@ -62,10 +62,28 @@ export const getDeliveryItemsByStatus = async (status: string): Promise<Delivery
   }
 };
 
+// Get delivery by ID
+export const getDeliveryById = async (id: string): Promise<DeliveryItem | null> => {
+  try {
+    if (firestoreService.isFirebaseInitialized()) {
+      const deliveries = await firestoreService.getDocumentById(DELIVERY_COLLECTION, id);
+      return deliveries as DeliveryItem;
+    } else {
+      // Fallback to IndexedDB
+      const delivery = await getById<DeliveryItem>(STORES.ORDERS, id);
+      return delivery;
+    }
+  } catch (error) {
+    console.error(`Error fetching delivery ${id}:`, error);
+    toast.error(`Failed to load delivery details`);
+    return null;
+  }
+};
+
 // Add a delivery
 export const addDelivery = async (delivery: Omit<DeliveryItem, 'id'>): Promise<DeliveryItem | null> => {
   try {
-    if (isFirebaseInitialized()) {
+    if (firestoreService.isFirebaseInitialized()) {
       // Add to Firebase
       const result = await firestoreService.addDocument(DELIVERY_COLLECTION, delivery);
       if (result) {
@@ -88,6 +106,66 @@ export const addDelivery = async (delivery: Omit<DeliveryItem, 'id'>): Promise<D
   }
 };
 
+// Update delivery
+export const updateDelivery = async (id: string, deliveryData: Partial<DeliveryItem>): Promise<boolean> => {
+  try {
+    if (firestoreService.isFirebaseInitialized()) {
+      const success = await firestoreService.updateDocument(
+        DELIVERY_COLLECTION, 
+        id, 
+        {
+          ...deliveryData,
+          updatedAt: new Date().toISOString()
+        }
+      );
+      if (success) {
+        toast.success("Delivery updated successfully!");
+      }
+      return success;
+    } else {
+      // Update in IndexedDB
+      const delivery = await getById<DeliveryItem>(STORES.ORDERS, id);
+      if (delivery) {
+        const updatedDelivery = {
+          ...delivery,
+          ...deliveryData,
+          updatedAt: new Date().toISOString()
+        };
+        await update(STORES.ORDERS, updatedDelivery);
+        toast.success("Delivery updated locally. Will sync when online.");
+        return true;
+      }
+      return false;
+    }
+  } catch (error) {
+    console.error('Error updating delivery:', error);
+    toast.error('Failed to update delivery');
+    return false;
+  }
+};
+
+// Delete delivery
+export const deleteDelivery = async (id: string): Promise<boolean> => {
+  try {
+    if (firestoreService.isFirebaseInitialized()) {
+      const success = await firestoreService.deleteDocument(DELIVERY_COLLECTION, id);
+      if (success) {
+        toast.success("Delivery deleted successfully!");
+      }
+      return success;
+    } else {
+      // Delete from IndexedDB
+      await deleteRecord(STORES.ORDERS, id);
+      toast.success("Delivery deleted locally. Will sync when online.");
+      return true;
+    }
+  } catch (error) {
+    console.error('Error deleting delivery:', error);
+    toast.error('Failed to delete delivery');
+    return false;
+  }
+};
+
 // Update delivery status
 export const updateDeliveryStatus = async (
   id: string, 
@@ -97,7 +175,7 @@ export const updateDeliveryStatus = async (
   try {
     let success = false;
     
-    if (isFirebaseInitialized() && isOnline) {
+    if (firestoreService.isFirebaseInitialized() && isOnline) {
       // Update in Firebase
       success = await firestoreService.updateDocument(DELIVERY_COLLECTION, id, {
         status,
@@ -153,7 +231,7 @@ export const updateDeliveryStatus = async (
 
 // Sync all pending delivery changes with Firebase
 export const syncPendingDeliveryChanges = async (isOnline: boolean): Promise<void> => {
-  if (!isFirebaseInitialized() || !isOnline) {
+  if (!firestoreService.isFirebaseInitialized() || !isOnline) {
     return;
   }
   
@@ -186,7 +264,7 @@ export const subscribeToDeliveriesByStatus = (
   status: string, 
   callback: (deliveries: DeliveryItem[]) => void
 ): (() => void) => {
-  if (!isFirebaseInitialized()) {
+  if (!firestoreService.isFirebaseInitialized()) {
     // If Firebase isn't available, return a no-op function
     callback([]);
     return () => {};
@@ -200,9 +278,25 @@ export const subscribeToDeliveriesByStatus = (
   );
 };
 
+// Subscribe to all deliveries
+export const subscribeToAllDeliveries = (
+  callback: (deliveries: DeliveryItem[]) => void
+): (() => void) => {
+  if (!firestoreService.isFirebaseInitialized()) {
+    // If Firebase isn't available, return a no-op function
+    callback([]);
+    return () => {};
+  }
+  
+  return firestoreService.subscribeToCollection(
+    DELIVERY_COLLECTION,
+    data => callback(data as DeliveryItem[])
+  );
+};
+
 // Sync deliveries with Firebase
 export const syncDeliveriesWithFirebase = async (isOnline: boolean): Promise<void> => {
-  if (!isFirebaseInitialized()) return;
+  if (!firestoreService.isFirebaseInitialized()) return;
   
   // First, sync any pending changes
   await syncPendingDeliveryChanges(isOnline);

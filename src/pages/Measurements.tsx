@@ -4,16 +4,15 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, User, Search } from "lucide-react";
 import { customerService } from '@/services/customerService';
 import { Customer, Measurement } from '@/types/models';
 import { MeasurementManager } from '@/components/measurements/MeasurementManager';
 import { toast } from "sonner";
 import { AddCustomerDialog } from '@/components/customers/AddCustomerDialog';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Measurements = () => {
-  const [measurementType, setMeasurementType] = useState("shirt");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -139,28 +138,30 @@ const Measurements = () => {
                   />
                 </div>
                 
-                <div className="border rounded-md h-[300px] overflow-y-auto">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  ) : filteredCustomers.length === 0 ? (
-                    <div className="p-2 text-center text-muted-foreground">
-                      No customers found
-                    </div>
-                  ) : (
-                    filteredCustomers.map(customer => (
-                      <div 
-                        key={customer.id}
-                        className={`p-2 hover:bg-accent cursor-pointer ${selectedCustomer?.id === customer.id ? 'bg-accent' : ''}`}
-                        onClick={() => handleCustomerSelect(customer)}
-                      >
-                        <p className="font-medium">{customer.name}</p>
-                        <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                <ScrollArea className="h-[300px]">
+                  <div className="border rounded-md">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center h-[300px]">
+                        <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ) : filteredCustomers.length === 0 ? (
+                      <div className="p-2 text-center text-muted-foreground">
+                        No customers found
+                      </div>
+                    ) : (
+                      filteredCustomers.map(customer => (
+                        <div 
+                          key={customer.id}
+                          className={`p-2 hover:bg-accent cursor-pointer ${selectedCustomer?.id === customer.id ? 'bg-accent' : ''}`}
+                          onClick={() => handleCustomerSelect(customer)}
+                        >
+                          <p className="font-medium">{customer.name}</p>
+                          <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
             </CardContent>
           </Card>

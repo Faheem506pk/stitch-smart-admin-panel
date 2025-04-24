@@ -128,7 +128,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       
       if (success && savedCustomer) {
         setSavedCustomerId(savedCustomer.id);
-        onOpenChange(false); // Close the modal after saving
         return true;
       }
       
@@ -178,7 +177,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           </div>
         </div>
         
-        <ScrollArea className="h-[calc(70vh-120px)]">
+        <ScrollArea className="h-[60vh] pr-4">
           <div className="pr-4">
             <AddCustomerStepAnimator step={step} direction={direction}>
               {renderStep()}
@@ -188,11 +187,13 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             {existingCustomer && (
               <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-medium mb-4">Customer Measurements</h3>
-                {measurements.length > 0 ? (
-                  <MeasurementManager customerId={existingCustomer.id} initialMeasurements={measurements} />
-                ) : (
-                  <p className="text-muted-foreground">No measurements found for this customer.</p>
-                )}
+                <ScrollArea className="h-[300px]">
+                  {measurements.length > 0 ? (
+                    <MeasurementManager customerId={existingCustomer.id} initialMeasurements={measurements} />
+                  ) : (
+                    <p className="text-muted-foreground">No measurements found for this customer.</p>
+                  )}
+                </ScrollArea>
               </div>
             )}
           </div>
@@ -200,4 +201,4 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       </div>
     </div>
   );
-}
+};

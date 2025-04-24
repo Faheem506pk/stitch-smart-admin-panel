@@ -1,4 +1,3 @@
-
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,36 +5,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Database, FileText, User, Cloud, Image } from "lucide-react";
+import { Settings as SettingsIcon, Database, FileText, User, Cloud, Image, Scissors, Trash } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cloudinaryService } from "@/services/cloudinaryService";
-import { initializeFirebase, getFirebaseConfig, storeFirebaseConfig } from "@/services/firebase";
+import { initializeFirebase, getFirebaseConfig, storeFirebaseConfig, firestoreService } from "@/services/firebase";
+import { toast } from "sonner";
+import { CustomMeasurementField, CustomMeasurementType } from "@/types/measurementTypes";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
   const [pinInput, setPinInput] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [showPin, setShowPin] = useState(false);
-  
-  // Firebase configuration state
-  const [firebaseConfig, setFirebaseConfig] = useState({
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
-  });
-
-  // Cloudinary configuration state
-  const [cloudinaryConfig, setCloudinaryConfig] = useState({
-    cloudName: cloudinaryService.getConfig().cloudName || "",
-    apiKey: cloudinaryService.getConfig().apiKey || "",
-    uploadPreset: "stitchsmart"
-  });
+  const [currencySymbol, setCurrencySymbol] = useState('Rs.');
+  const [measurementTypes, setMeasurementTypes] = useState<CustomMeasurementType[]>([]);
+  const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [isAddFieldDialogOpen, setIsAddFieldDialogOpen] = useState(false);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState<'number' | 'text'>('number');
+  const [newFieldRequired, setNewFieldRequired] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Load stored configurations on component mount
     const storedFirebaseConfig = getFirebaseConfig();
     if (storedFirebaseConfig) {
       setFirebaseConfig(storedFirebaseConfig);
@@ -45,7 +41,34 @@ const Settings = () => {
     if (storedCloudinaryConfig) {
       setCloudinaryConfig(JSON.parse(storedCloudinaryConfig));
     }
+    
+    const storedCurrency = localStorage.getItem('currency_symbol');
+    if (storedCurrency) {
+      setCurrencySymbol(storedCurrency);
+    }
+    
+    fetchMeasurementTypes();
   }, []);
+
+  const fetchMeasurementTypes = async () => {
+    setIsLoading(true);
+    try {
+      if (firestoreService.isFirebaseInitialized()) {
+        const types = await firestoreService.getDocuments('measurementTypes');
+        setMeasurementTypes(types as CustomMeasurementType[]);
+      } else {
+        const typesJson = localStorage.getItem('measurement_types');
+        if (typesJson) {
+          setMeasurementTypes(JSON.parse(typesJson));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading measurement types:', error);
+      toast.error('Failed to load measurement types');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFirebaseConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -69,7 +92,6 @@ const Settings = () => {
   };
 
   const saveFirebaseConfig = () => {
-    // Save to localStorage and reinitialize Firebase
     storeFirebaseConfig(firebaseConfig);
     initializeFirebase(firebaseConfig);
     
@@ -78,10 +100,8 @@ const Settings = () => {
   };
 
   const saveCloudinaryConfig = () => {
-    // Save to localStorage
     localStorage.setItem('cloudinary_config', JSON.stringify(cloudinaryConfig));
     
-    // Update the CloudinaryService configuration
     cloudinaryService.updateConfig({
       cloudName: cloudinaryConfig.cloudName,
       apiKey: cloudinaryConfig.apiKey,
@@ -90,6 +110,138 @@ const Settings = () => {
     
     alert("Cloudinary configuration saved!");
     setIsEditMode(false);
+  };
+
+  const saveCurrencySymbol = () => {
+    localStorage.setItem('currency_symbol', currencySymbol);
+    toast.success('Currency symbol updated successfully!');
+  };
+
+  const addMeasurementType = async () => {
+    if (!newTypeName.trim()) {
+      toast.error('Please enter a type name');
+      return;
+    }
+
+    const newType: CustomMeasurementType = {
+      id: crypto.randomUUID(),
+      name: newTypeName,
+      fields: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      if (firestoreService.isFirebaseInitialized()) {
+        await firestoreService.addDocument('measurementTypes', newType);
+      } else {
+        const updatedTypes = [...measurementTypes, newType];
+        localStorage.setItem('measurement_types', JSON.stringify(updatedTypes));
+        setMeasurementTypes(updatedTypes);
+      }
+      
+      setNewTypeName('');
+      setIsAddTypeDialogOpen(false);
+      toast.success('Measurement type added successfully!');
+      fetchMeasurementTypes();
+    } catch (error) {
+      console.error('Error adding measurement type:', error);
+      toast.error('Failed to add measurement type');
+    }
+  };
+
+  const addFieldToType = async () => {
+    if (!selectedTypeId) return;
+    if (!newFieldName.trim()) {
+      toast.error('Please enter a field name');
+      return;
+    }
+
+    const selectedType = measurementTypes.find(type => type.id === selectedTypeId);
+    if (!selectedType) return;
+
+    const newField: CustomMeasurementField = {
+      id: crypto.randomUUID(),
+      label: newFieldName,
+      type: newFieldType,
+      required: newFieldRequired
+    };
+
+    const updatedType = {
+      ...selectedType,
+      fields: [...selectedType.fields, newField],
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      if (firestoreService.isFirebaseInitialized()) {
+        await firestoreService.updateDocument('measurementTypes', selectedTypeId, updatedType);
+      } else {
+        const updatedTypes = measurementTypes.map(type => 
+          type.id === selectedTypeId ? updatedType : type
+        );
+        localStorage.setItem('measurement_types', JSON.stringify(updatedTypes));
+        setMeasurementTypes(updatedTypes);
+      }
+      
+      setNewFieldName('');
+      setNewFieldType('number');
+      setNewFieldRequired(true);
+      setIsAddFieldDialogOpen(false);
+      toast.success('Field added successfully!');
+      fetchMeasurementTypes();
+    } catch (error) {
+      console.error('Error adding field:', error);
+      toast.error('Failed to add field');
+    }
+  };
+
+  const deleteField = async (typeId: string, fieldId: string) => {
+    const selectedType = measurementTypes.find(type => type.id === typeId);
+    if (!selectedType) return;
+
+    const updatedFields = selectedType.fields.filter(field => field.id !== fieldId);
+    const updatedType = {
+      ...selectedType,
+      fields: updatedFields,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      if (firestoreService.isFirebaseInitialized()) {
+        await firestoreService.updateDocument('measurementTypes', typeId, updatedType);
+      } else {
+        const updatedTypes = measurementTypes.map(type => 
+          type.id === typeId ? updatedType : type
+        );
+        localStorage.setItem('measurement_types', JSON.stringify(updatedTypes));
+        setMeasurementTypes(updatedTypes);
+      }
+      
+      toast.success('Field deleted successfully!');
+      fetchMeasurementTypes();
+    } catch (error) {
+      console.error('Error deleting field:', error);
+      toast.error('Failed to delete field');
+    }
+  };
+
+  const deleteMeasurementType = async (typeId: string) => {
+    try {
+      if (firestoreService.isFirebaseInitialized()) {
+        await firestoreService.deleteDocument('measurementTypes', typeId);
+      } else {
+        const updatedTypes = measurementTypes.filter(type => type.id !== typeId);
+        localStorage.setItem('measurement_types', JSON.stringify(updatedTypes));
+        setMeasurementTypes(updatedTypes);
+      }
+      
+      toast.success('Measurement type deleted successfully!');
+      fetchMeasurementTypes();
+    } catch (error) {
+      console.error('Error deleting measurement type:', error);
+      toast.error('Failed to delete measurement type');
+    }
   };
 
   return (
@@ -115,6 +267,10 @@ const Settings = () => {
             <TabsTrigger value="cloudinary">
               <Image className="h-4 w-4 mr-2" />
               Cloudinary
+            </TabsTrigger>
+            <TabsTrigger value="measurements">
+              <Scissors className="h-4 w-4 mr-2" />
+              Measurements
             </TabsTrigger>
             <TabsTrigger value="business">
               <FileText className="h-4 w-4 mr-2" />
@@ -162,7 +318,15 @@ const Settings = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency Symbol</Label>
-                  <Input id="currency" placeholder="Rs." defaultValue="Rs." />
+                  <div className="flex items-center space-x-2">
+                    <Input 
+                      id="currency" 
+                      placeholder="Rs." 
+                      value={currencySymbol}
+                      onChange={(e) => setCurrencySymbol(e.target.value)}
+                    />
+                    <Button onClick={saveCurrencySymbol}>Save</Button>
+                  </div>
                 </div>
                 
                 <Button>Save Settings</Button>
@@ -405,6 +569,94 @@ const Settings = () => {
             </Card>
           </TabsContent>
           
+          <TabsContent value="measurements" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Custom Measurement Types</CardTitle>
+                  <CardDescription>
+                    Create and manage custom measurement types and fields.
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setIsAddTypeDialogOpen(true)}>Add Type</Button>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : measurementTypes.length === 0 ? (
+                  <div className="text-center p-8 border rounded-md">
+                    <Scissors className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-4" />
+                    <p className="text-muted-foreground">No custom measurement types yet.</p>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      Add a new type to start customizing your measurements.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {measurementTypes.map(type => (
+                      <div key={type.id} className="border rounded-md p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium text-lg">{type.name}</h3>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTypeId(type.id);
+                                setIsAddFieldDialogOpen(true);
+                              }}
+                            >
+                              Add Field
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => deleteMeasurementType(type.id)}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {type.fields.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No fields added yet.
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {type.fields.map(field => (
+                              <div 
+                                key={field.id}
+                                className="flex items-center justify-between border rounded-md p-2"
+                              >
+                                <div>
+                                  <p className="font-medium">{field.label}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Type: {field.type} • {field.required ? 'Required' : 'Optional'}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => deleteField(type.id, field.id)}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
           <TabsContent value="business" className="space-y-4">
             <Card>
               <CardHeader>
@@ -434,6 +686,79 @@ const Settings = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={isAddTypeDialogOpen} onOpenChange={setIsAddTypeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Measurement Type</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="typeName">Type Name</Label>
+              <Input
+                id="typeName"
+                value={newTypeName}
+                onChange={(e) => setNewTypeName(e.target.value)}
+                placeholder="e.g., Shirt, Kurta, Waistcoat"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddTypeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addMeasurementType}>Add Type</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddFieldDialogOpen} onOpenChange={setIsAddFieldDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Measurement Field</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="fieldName">Field Name</Label>
+              <Input
+                id="fieldName"
+                value={newFieldName}
+                onChange={(e) => setNewFieldName(e.target.value)}
+                placeholder="e.g., Chest, Waist, Length"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fieldType">Field Type</Label>
+              <Select 
+                value={newFieldType} 
+                onValueChange={(value) => setNewFieldType(value as 'number' | 'text')}
+              >
+                <SelectTrigger id="fieldType">
+                  <SelectValue placeholder="Select field type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="text">Text</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="required"
+                checked={newFieldRequired}
+                onCheckedChange={setNewFieldRequired}
+              />
+              <Label htmlFor="required">Required Field</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddFieldDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addFieldToType}>Add Field</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
