@@ -25,6 +25,7 @@ import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 // Order type definition
 interface Order {
@@ -92,11 +93,6 @@ const Orders = () => {
       order.id.toLowerCase().includes(searchString)
     );
   });
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `Rs. ${amount.toLocaleString()}`;
-  };
 
   // Format date
   const formatDate = (dateString: string) => {

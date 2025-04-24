@@ -25,6 +25,7 @@ export interface DeliveryItem {
 }
 
 const DELIVERY_COLLECTION = 'deliveries';
+const ORDER_COLLECTION = 'orders';
 
 // Get all delivery items from Firebase and fallback to IndexedDB
 export const getDeliveryItems = async (): Promise<DeliveryItem[]> => {
@@ -66,8 +67,8 @@ export const getDeliveryItemsByStatus = async (status: string): Promise<Delivery
 export const getDeliveryById = async (id: string): Promise<DeliveryItem | null> => {
   try {
     if (firestoreService.isFirebaseInitialized()) {
-      const deliveries = await firestoreService.getDocumentById(DELIVERY_COLLECTION, id);
-      return deliveries as DeliveryItem;
+      const delivery = await firestoreService.getDocumentById(DELIVERY_COLLECTION, id);
+      return delivery as DeliveryItem;
     } else {
       // Fallback to IndexedDB
       const delivery = await getById<DeliveryItem>(STORES.ORDERS, id);
@@ -76,6 +77,24 @@ export const getDeliveryById = async (id: string): Promise<DeliveryItem | null> 
   } catch (error) {
     console.error(`Error fetching delivery ${id}:`, error);
     toast.error(`Failed to load delivery details`);
+    return null;
+  }
+};
+
+// Get order details for a delivery
+export const getOrderDetails = async (orderId: string) => {
+  try {
+    if (firestoreService.isFirebaseInitialized()) {
+      const order = await firestoreService.getDocumentById(ORDER_COLLECTION, orderId);
+      return order;
+    } else {
+      // Fallback to IndexedDB
+      const order = await getById(STORES.ORDERS, orderId);
+      return order;
+    }
+  } catch (error) {
+    console.error(`Error fetching order ${orderId}:`, error);
+    toast.error(`Failed to load order details`);
     return null;
   }
 };

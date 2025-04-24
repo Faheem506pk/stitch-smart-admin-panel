@@ -32,7 +32,8 @@ export const ensureCollectionsExist = async (): Promise<void> => {
     'orders',
     'measurements',
     'payments',
-    'deliveries'
+    'deliveries',
+    'measurementTypes'
   ];
   
   for (const collection of collections) {

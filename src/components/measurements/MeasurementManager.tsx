@@ -6,10 +6,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Measurement } from '@/types/models';
 import { customerService } from '@/services/customerService';
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, ArrowUpDown, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { MeasurementEditor } from './MeasurementEditor';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { firestoreService } from '@/services/firebase';
+import { CustomMeasurementType } from '@/types/measurementTypes';
 
 interface MeasurementManagerProps {
   customerId: string;
@@ -18,11 +20,37 @@ interface MeasurementManagerProps {
 
 export function MeasurementManager({ customerId, initialMeasurements = [] }: MeasurementManagerProps) {
   const [measurements, setMeasurements] = useState<Measurement[]>(initialMeasurements);
-  const [selectedType, setSelectedType] = useState<'shirt' | 'pant' | 'suit' | 'dress'>('shirt');
+  const [selectedType, setSelectedType] = useState<string>('shirt');
   const [showEditor, setShowEditor] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [measurementToDelete, setMeasurementToDelete] = useState<string | null>(null);
+  const [customMeasurementTypes, setCustomMeasurementTypes] = useState<CustomMeasurementType[]>([]);
+  const [isLoadingTypes, setIsLoadingTypes] = useState(false);
+
+  // Fetch custom measurement types
+  useEffect(() => {
+    const fetchMeasurementTypes = async () => {
+      setIsLoadingTypes(true);
+      try {
+        if (firestoreService.isFirebaseInitialized()) {
+          const types = await firestoreService.getDocuments('measurementTypes');
+          setCustomMeasurementTypes(types as CustomMeasurementType[]);
+        } else {
+          const typesJson = localStorage.getItem('measurement_types');
+          if (typesJson) {
+            setCustomMeasurementTypes(JSON.parse(typesJson));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading measurement types:', error);
+      } finally {
+        setIsLoadingTypes(false);
+      }
+    };
+
+    fetchMeasurementTypes();
+  }, []);
 
   useEffect(() => {
     if (initialMeasurements.length > 0) {
@@ -124,15 +152,36 @@ export function MeasurementManager({ customerId, initialMeasurements = [] }: Mea
     setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
   };
 
+  // Get display name for current measurement type
+  const getCurrentTypeName = () => {
+    const customType = customMeasurementTypes.find(t => t.id === selectedType);
+    if (customType) return customType.name;
+    
+    // Default names
+    const defaultNames: Record<string, string> = {
+      shirt: "Shirt",
+      pant: "Pant",
+      suit: "Suit",
+      dress: "Dress"
+    };
+    
+    return defaultNames[selectedType] || "Other";
+  };
+
   return (
     <div>
-      <Tabs defaultValue="shirt" onValueChange={(value) => setSelectedType(value as any)}>
+      <Tabs value={selectedType} onValueChange={setSelectedType}>
         <div className="flex items-center justify-between mb-4">
           <TabsList className="flex-wrap">
             <TabsTrigger value="shirt">Shirt</TabsTrigger>
             <TabsTrigger value="pant">Pant</TabsTrigger>
             <TabsTrigger value="suit">Suit</TabsTrigger>
             <TabsTrigger value="dress">Dress</TabsTrigger>
+            {customMeasurementTypes.map(type => (
+              <TabsTrigger key={type.id} value={type.id}>
+                {type.name}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <div className="flex gap-2">
@@ -152,8 +201,13 @@ export function MeasurementManager({ customerId, initialMeasurements = [] }: Mea
           </div>
         </div>
 
+        {/* Default types */}
         <TabsContent value="shirt" className="space-y-4">
-          {filteredMeasurements.length === 0 ? (
+          {isLoadingTypes ? (
+            <div className="flex justify-center items-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : filteredMeasurements.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No shirt measurements found.</p>
           ) : (
             <div className="space-y-3">
@@ -225,7 +279,6 @@ export function MeasurementManager({ customerId, initialMeasurements = [] }: Mea
             <p className="text-muted-foreground text-center py-4">No pant measurements found.</p>
           ) : (
             <div className="space-y-3">
-              {/* Similar rendering for pant measurements */}
               {filteredMeasurements.map((measurement) => (
                 <Card key={measurement.id} className="overflow-hidden">
                   <CardContent className="p-4">
@@ -271,8 +324,43 @@ export function MeasurementManager({ customerId, initialMeasurements = [] }: Mea
             <p className="text-muted-foreground text-center py-4">No suit measurements found.</p>
           ) : (
             <div className="space-y-3">
-              {/* Similar rendering for suit measurements */}
-              {/* ... (similar pattern as shirt) */}
+              {filteredMeasurements.map((measurement) => (
+                // Similar rendering for suit measurements
+                <Card key={measurement.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-medium">
+                        {format(new Date(measurement.updatedAt), 'MMM d, yyyy h:mm a')}
+                      </h4>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleEditMeasurement(measurement)}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-destructive" 
+                          onClick={() => setMeasurementToDelete(measurement.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                      {Object.entries(measurement.values).map(([key, value]) => (
+                        <div key={key} className="flex justify-between">
+                          <span className="capitalize">{key.replace(/([A-Z])/g, " $1")}: </span>
+                          <span className="font-medium">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
@@ -282,11 +370,96 @@ export function MeasurementManager({ customerId, initialMeasurements = [] }: Mea
             <p className="text-muted-foreground text-center py-4">No dress measurements found.</p>
           ) : (
             <div className="space-y-3">
-              {/* Similar rendering for dress measurements */}
-              {/* ... (similar pattern as shirt) */}
+              {filteredMeasurements.map((measurement) => (
+                // Similar rendering for dress measurements
+                <Card key={measurement.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-medium">
+                        {format(new Date(measurement.updatedAt), 'MMM d, yyyy h:mm a')}
+                      </h4>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleEditMeasurement(measurement)}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-destructive" 
+                          onClick={() => setMeasurementToDelete(measurement.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                      {Object.entries(measurement.values).map(([key, value]) => (
+                        <div key={key} className="flex justify-between">
+                          <span className="capitalize">{key.replace(/([A-Z])/g, " $1")}: </span>
+                          <span className="font-medium">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
+        
+        {/* Dynamic tabs for custom measurement types */}
+        {customMeasurementTypes.map(type => (
+          <TabsContent key={type.id} value={type.id} className="space-y-4">
+            {filteredMeasurements.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No {type.name} measurements found.</p>
+            ) : (
+              <div className="space-y-3">
+                {filteredMeasurements.map((measurement) => (
+                  <Card key={measurement.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium">
+                          {format(new Date(measurement.updatedAt), 'MMM d, yyyy h:mm a')}
+                        </h4>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEditMeasurement(measurement)}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-destructive" 
+                            onClick={() => setMeasurementToDelete(measurement.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                        {Object.entries(measurement.values).map(([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="capitalize">
+                              {type.fields.find(f => f.id === key)?.label || key.replace(/([A-Z])/g, " $1")}:
+                            </span>
+                            <span className="font-medium">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
 
       {showEditor && (
@@ -295,6 +468,7 @@ export function MeasurementManager({ customerId, initialMeasurements = [] }: Mea
           measurement={editingMeasurement}
           onSave={handleSaveMeasurement}
           onCancel={() => setShowEditor(false)}
+          customMeasurementTypes={customMeasurementTypes}
         />
       )}
     </div>

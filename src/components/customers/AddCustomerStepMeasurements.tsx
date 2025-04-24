@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +13,9 @@ import {
 import { MeasurementFormData } from './addCustomerFlowTypes';
 import { customerService } from '@/services/customerService';
 import { useToast } from '@/hooks/use-toast';
-import { Scissors } from 'lucide-react';
+import { Scissors, Loader2 } from 'lucide-react';
+import { firestoreService } from '@/services/firebase';
+import { CustomMeasurementType } from '@/types/measurementTypes';
 
 interface AddCustomerStepMeasurementsProps {
   measurementData: MeasurementFormData;
@@ -26,8 +27,8 @@ interface AddCustomerStepMeasurementsProps {
   isExisting: boolean;
 }
 
-// Measurement fields for different garment types
-const measurementFields = {
+// Default measurement fields for different garment types
+const defaultMeasurementFields = {
   shirt: [
     { id: 'chest', label: 'Chest (inches)' },
     { id: 'shoulder', label: 'Shoulder (inches)' },
@@ -80,8 +81,34 @@ export function AddCustomerStepMeasurements({
 }: AddCustomerStepMeasurementsProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const [customMeasurementTypes, setCustomMeasurementTypes] = useState<CustomMeasurementType[]>([]);
+  const [isLoadingTypes, setIsLoadingTypes] = useState(false);
   
-  const handleTypeChange = (type: 'shirt' | 'pant' | 'suit' | 'dress' | 'other') => {
+  // Fetch custom measurement types
+  useEffect(() => {
+    const fetchMeasurementTypes = async () => {
+      setIsLoadingTypes(true);
+      try {
+        if (firestoreService.isFirebaseInitialized()) {
+          const types = await firestoreService.getDocuments('measurementTypes');
+          setCustomMeasurementTypes(types as CustomMeasurementType[]);
+        } else {
+          const typesJson = localStorage.getItem('measurement_types');
+          if (typesJson) {
+            setCustomMeasurementTypes(JSON.parse(typesJson));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading measurement types:', error);
+      } finally {
+        setIsLoadingTypes(false);
+      }
+    };
+
+    fetchMeasurementTypes();
+  }, []);
+  
+  const handleTypeChange = (type: string) => {
     setMeasurementData(prev => ({ 
       ...prev, 
       type,
@@ -116,6 +143,22 @@ export function AddCustomerStepMeasurements({
   // Check if any measurements have been entered
   const hasMeasurements = Object.keys(measurementData.values).length > 0;
 
+  // Get fields for the current measurement type
+  const getFieldsForCurrentType = () => {
+    // First check if it's a custom type
+    const customType = customMeasurementTypes.find(t => t.id === measurementData.type);
+    
+    if (customType) {
+      return customType.fields.map(field => ({
+        id: field.id,
+        label: `${field.label} ${field.type === 'number' ? '(inches)' : ''}`
+      }));
+    }
+    
+    // Otherwise use default fields
+    return defaultMeasurementFields[measurementData.type as keyof typeof defaultMeasurementFields] || [];
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2 mb-2">
@@ -127,25 +170,45 @@ export function AddCustomerStepMeasurements({
       
       <div className="space-y-2">
         <Label htmlFor="measurementType">Measurement Type</Label>
-        <Select
-          value={measurementData.type}
-          onValueChange={(value) => handleTypeChange(value as any)}
-        >
-          <SelectTrigger id="measurementType">
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="shirt">Shirt</SelectItem>
-            <SelectItem value="pant">Pant/Trouser</SelectItem>
-            <SelectItem value="suit">Suit</SelectItem>
-            <SelectItem value="dress">Dress</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
+        {isLoadingTypes ? (
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading measurement types...</span>
+          </div>
+        ) : (
+          <Select
+            value={measurementData.type}
+            onValueChange={handleTypeChange}
+          >
+            <SelectTrigger id="measurementType">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="shirt">Shirt</SelectItem>
+              <SelectItem value="pant">Pant/Trouser</SelectItem>
+              <SelectItem value="suit">Suit</SelectItem>
+              <SelectItem value="dress">Dress</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+              
+              {customMeasurementTypes.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                    Custom Types
+                  </div>
+                  {customMeasurementTypes.map(type => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        )}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        {measurementFields[measurementData.type].map((field) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 max-h-[60vh] overflow-y-auto py-2">
+        {getFieldsForCurrentType().map((field) => (
           <div key={field.id} className="space-y-2">
             <Label htmlFor={field.id}>{field.label}</Label>
             <Input
