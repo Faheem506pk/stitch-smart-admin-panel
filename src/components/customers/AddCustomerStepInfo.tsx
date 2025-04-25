@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,23 +20,25 @@ interface AddCustomerStepInfoProps {
 }
 
 function formatPakistaniNumber(number: string): string {
+  // Remove all non-digit characters
   let cleaned = number.replace(/\D/g, '');
   
+  // Ensure the number starts with 0 or 92
   if (cleaned.startsWith('92')) {
     cleaned = '0' + cleaned.slice(2);
   } else if (!cleaned.startsWith('0')) {
     cleaned = '0' + cleaned;
   }
   
-  if (cleaned.length >= 11) {
-    return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 11)}`;
+  // Limit to 11 digits
+  cleaned = cleaned.slice(0, 11);
+  
+  // Format to 0332-5194976
+  if (cleaned.length === 11) {
+    return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
   }
+  
   return cleaned;
-}
-
-function getWhatsAppUrl(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '').replace(/^0+/, '');
-  return `https://wa.me/92${cleaned}`;
 }
 
 export function AddCustomerStepInfo({ 
@@ -96,11 +99,22 @@ export function AddCustomerStepInfo({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPakistaniNumber(e.target.value);
-    setCustomerData(prev => ({ ...prev, phone: formatted }));
+    const value = e.target.value;
+    const formatted = formatPakistaniNumber(value);
+    
+    // Validate phone number
+    if (formatted.length <= 12) {  // 4 chars for prefix + 7 digits
+      setCustomerData(prev => ({ ...prev, phone: formatted }));
+    }
   };
 
   const handleSaveClick = async () => {
+    // Validate phone number is exactly 11 digits
+    if (customerData.phone.replace(/\D/g, '').length !== 11) {
+      toast.error("Phone number must be exactly 11 digits");
+      return;
+    }
+
     const success = await onSave();
     if (success) {
       // Continue to next step or close

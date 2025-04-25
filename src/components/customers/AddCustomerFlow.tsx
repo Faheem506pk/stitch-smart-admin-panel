@@ -1,12 +1,12 @@
-
 import { useState, useEffect } from 'react';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
 import { AddCustomerStepInfo } from './AddCustomerStepInfo';
+import { AddCustomerStepMeasurements } from './AddCustomerStepMeasurements';
 import { AddCustomerStepAnimator } from './AddCustomerStepAnimator';
 import { Customer, Measurement } from '@/types/models';
 import { customerService } from '@/services/customerService';
 import { toast } from "sonner";
-import { CustomerFormData } from './addCustomerFlowTypes';
+import { CustomerFormData, MeasurementFormData } from './addCustomerFlowTypes';
 import { MeasurementManager } from '@/components/measurements/MeasurementManager';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -19,17 +19,20 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
-  const [customerData, setCustomerData] = useState<CustomerFormData>({ 
-    name: '', 
-    phone: '', 
+  const [customerData, setCustomerData] = useState<CustomerFormData>({
+    name: '',
+    phone: '',
     isWhatsApp: false,
     profilePicture: null
   });
   const [isSaving, setIsSaving] = useState(false);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [savedCustomerId, setSavedCustomerId] = useState<string | null>(null);
+  const [measurementData, setMeasurementData] = useState<MeasurementFormData>({
+    type: 'shirt',
+    values: {}
+  });
 
-  // Fetch measurements if customer exists
   useEffect(() => {
     if (existingCustomer) {
       const fetchMeasurements = async () => {
@@ -142,6 +145,36 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
     }
   };
 
+  const handleSaveMeasurement = async () => {
+    if (!savedCustomerId) {
+      toast.error("Please save customer first");
+      return false;
+    }
+
+    try {
+      if (measurementData.type && Object.keys(measurementData.values).length > 0) {
+        const measurementToSave = {
+          customerId: savedCustomerId,
+          type: measurementData.type,
+          values: measurementData.values,
+          notes: measurementData.notes,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await customerService.addCustomerMeasurement(measurementToSave);
+        toast.success("Measurement added successfully!");
+        return true;
+      } else {
+        return true;
+      }
+    } catch (error) {
+      console.error("Error saving measurement:", error);
+      toast.error("Failed to save measurement. Please try again.");
+      return false;
+    }
+  };
+
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -160,6 +193,18 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             onBack={goToPreviousStep}
             isExisting={!!existingCustomer}
             isSaving={isSaving}
+          />
+        );
+      case 3:
+        return (
+          <AddCustomerStepMeasurements
+            measurementData={measurementData}
+            setMeasurementData={setMeasurementData}
+            onNext={handleSaveMeasurement}
+            onBack={goToPreviousStep}
+            onSkip={() => goToNextStep()}
+            customerId={savedCustomerId}
+            isExisting={!!existingCustomer}
           />
         );
       default:
@@ -184,7 +229,6 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
               {renderStep()}
             </AddCustomerStepAnimator>
             
-            {/* Show measurements if we found an existing customer */}
             {existingCustomer && (
               <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-medium mb-4">Customer Measurements</h3>
@@ -202,4 +246,4 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       </div>
     </div>
   );
-};
+}
