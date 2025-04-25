@@ -23,21 +23,30 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
       toast.error("Please enter a phone number");
       return;
     }
-    
+  
+    // Remove dash from phone number
+    const phoneWithoutDash = phone.replace(/-/g, '');
+  
+    // Validate phone number length
+    if (phoneWithoutDash.length !== 11) {
+      toast.error("Please enter a valid 11-digit phone number");
+      return;
+    }
+  
     setIsChecking(true);
-    
+  
     try {
       // Check if customer exists in Firebase
-      const existingCustomer = await customerService.getCustomerByPhone(phone);
-      
+      const existingCustomer = await customerService.getCustomerByPhone(phoneWithoutDash);
+  
       if (existingCustomer) {
         toast.success("Customer found! Loading customer details...");
       } else {
         toast.info("No customer found with this phone number. You can add a new customer.");
       }
-      
+  
       // Pass the result to parent component
-      await onCheck(phone, isWhatsApp);
+      await onCheck(phoneWithoutDash, isWhatsApp);
     } catch (error) {
       console.error("Error checking customer:", error);
       toast.error("Failed to check customer. Please try again.");
@@ -45,6 +54,8 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
       setIsChecking(false);
     }
   };
+  
+  
 
   return (
     <div className="space-y-4">
@@ -57,14 +68,29 @@ export function AddCustomerStepCheck({ onCheck, onCancel }: AddCustomerStepCheck
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            id="phone"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Enter phone number"
-            className="pl-10"
-            autoFocus
-          />
+  id="phone"
+  type="tel"
+  value={phone}
+  onChange={(e) => {
+    // Remove non-numeric characters (just keep the digits)
+    const formattedPhone = e.target.value.replace(/\D/g, '').slice(0, 11);
+    // Format as 0332-5194976 if the input is 11 digits
+    if (formattedPhone.length <= 4) {
+      setPhone(formattedPhone);
+    } else {
+      setPhone(formattedPhone.replace(/(\d{4})(\d{3})(\d{4})/, '$1-$2$3'));
+    }
+  }}
+  placeholder="Enter phone number"
+  className="pl-10"
+  autoFocus
+  pattern="^03[0-9]{9}$"  // Matches phone numbers like 03325194976 (no dash)
+  minLength={11}  // Minimum 11 digits
+  maxLength={11}  // Maximum 11 digits
+  required
+/>
+
+
         </div>
       </div>
       
