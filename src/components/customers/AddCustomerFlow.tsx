@@ -104,10 +104,10 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       const customerToSave = {
         name: customerData.name,
         phone: customerData.phone,
-        email: customerData.email ?? undefined,
-        address: customerData.address ?? undefined,
-        notes: customerData.notes ?? undefined,
-        profilePicture: customerData.profilePicture ?? undefined,
+        email: customerData.email ?? null,
+        address: customerData.address ?? null,
+        notes: customerData.notes ?? null,
+        profilePicture: customerData.profilePicture ?? null,
         isWhatsApp: customerData.isWhatsApp,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
