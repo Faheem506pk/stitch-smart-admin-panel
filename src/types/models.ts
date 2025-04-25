@@ -1,4 +1,3 @@
-
 // Basic types for our tailor shop management system
 
 export interface User {
@@ -61,12 +60,12 @@ export interface Permissions {
 export interface Customer {
   id: string;
   name: string;
+  phone: string; // Format: "03XX-XXXXXXX"
   email?: string;
-  phone: string;
   address?: string;
-  profilePicture?: string;
   notes?: string;
-  isWhatsApp?: boolean;
+  profilePicture: string | null; // Made optional with null as fallback
+  isWhatsApp: boolean;
   createdAt: string;
   updatedAt: string;
 }

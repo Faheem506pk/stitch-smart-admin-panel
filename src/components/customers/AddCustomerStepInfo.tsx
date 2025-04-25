@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +18,26 @@ interface AddCustomerStepInfoProps {
   isSaving: boolean;
 }
 
+function formatPakistaniNumber(number: string): string {
+  let cleaned = number.replace(/\D/g, '');
+  
+  if (cleaned.startsWith('92')) {
+    cleaned = '0' + cleaned.slice(2);
+  } else if (!cleaned.startsWith('0')) {
+    cleaned = '0' + cleaned;
+  }
+  
+  if (cleaned.length >= 11) {
+    return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 11)}`;
+  }
+  return cleaned;
+}
+
+function getWhatsAppUrl(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '').replace(/^0+/, '');
+  return `https://wa.me/92${cleaned}`;
+}
+
 export function AddCustomerStepInfo({ 
   customerData, 
   setCustomerData, 
@@ -35,7 +54,6 @@ export function AddCustomerStepInfo({
     if (file) {
       setIsUploading(true);
       try {
-        // Show the local preview first
         const reader = new FileReader();
         reader.onload = (event) => {
           const imageUrl = event.target?.result as string;
@@ -43,7 +61,6 @@ export function AddCustomerStepInfo({
         };
         reader.readAsDataURL(file);
         
-        // Upload to Cloudinary
         const imageUrl = await cloudinaryService.uploadImage(file);
         if (imageUrl) {
           setCustomerData(prev => ({ ...prev, profilePicture: imageUrl }));
@@ -78,6 +95,11 @@ export function AddCustomerStepInfo({
     setCustomerData(prev => ({ ...prev, isWhatsApp: checked }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPakistaniNumber(e.target.value);
+    setCustomerData(prev => ({ ...prev, phone: formatted }));
+  };
+
   const handleSaveClick = async () => {
     const success = await onSave();
     if (success) {
@@ -98,7 +120,8 @@ export function AddCustomerStepInfo({
                 alt="Profile" 
                 className="w-full h-full object-cover" 
                 onError={() => {
-                  console.error("Error loading image:", profileImage);
+                  setProfileImage(null);
+                  setCustomerData(prev => ({ ...prev, profilePicture: null }));
                 }}
               />
             ) : (
@@ -163,9 +186,11 @@ export function AddCustomerStepInfo({
               id="phone"
               type="tel"
               value={customerData.phone}
-              onChange={(e) => setCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="Enter phone number"
-              readOnly={isExisting} // Make read-only if it's an existing customer
+              onChange={handlePhoneChange}
+              placeholder="03XX-XXXXXXX"
+              readOnly={isExisting}
+              pattern="[0-9]{4}-[0-9]{7}"
+              minLength={12}
               required
             />
           </div>
@@ -225,6 +250,19 @@ export function AddCustomerStepInfo({
           This is a WhatsApp number
         </Label>
       </div>
+      
+      {customerData.isWhatsApp && customerData.phone && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 text-green-600"
+          asChild
+        >
+          <a href={getWhatsAppUrl(customerData.phone)} target="_blank" rel="noopener noreferrer">
+            Open in WhatsApp
+          </a>
+        </Button>
+      )}
       
       <div className="flex justify-end space-x-2 pt-4">
         <Button variant="outline" onClick={onBack} disabled={isSaving || isUploading}>

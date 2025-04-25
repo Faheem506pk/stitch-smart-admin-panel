@@ -1,7 +1,6 @@
-
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, WhatsApp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { customerService } from "@/services/customerService";
@@ -43,7 +42,6 @@ const Customers = () => {
       }
     };
 
-    // Set up real-time listener
     const unsubscribe = customerService.subscribeToCustomers((data) => {
       setCustomers(data);
       setIsLoading(false);
@@ -51,7 +49,6 @@ const Customers = () => {
 
     fetchCustomers();
 
-    // Clean up the subscription
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -119,13 +116,24 @@ const Customers = () => {
                   customers.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell>{customer.name}</TableCell>
-                      <TableCell>{customer.phone}</TableCell>
+                      <TableCell className="flex items-center gap-2">
+                        {customer.phone}
+                        {customer.isWhatsApp && (
+                          <a
+                            href={`https://wa.me/92${customer.phone.replace(/\D/g, '').replace(/^0+/, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <WhatsApp className="h-4 w-4" />
+                          </a>
+                        )}
+                      </TableCell>
                       <TableCell>{customer.email || '-'}</TableCell>
                       <TableCell>{formatDate(customer.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => {
-                            // Edit functionality would go here
                             toast({
                               title: "Coming Soon",
                               description: "Edit feature will be available soon.",
