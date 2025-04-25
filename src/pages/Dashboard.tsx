@@ -7,10 +7,12 @@ import { Users, FileText, Shirt, DollarSign, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { useState } from "react";
+import { formatCurrency } from "@/utils/currencyUtils";
+import {RupeeIcon} from "@/utils/icons"
 
 const Dashboard = () => {
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
-
+const Revenue = formatCurrency(12000);
   return (
     <Layout>
       <div className="flex flex-col gap-4 md:gap-6">
@@ -47,8 +49,8 @@ const Dashboard = () => {
           />
           <StatCard
             title="Revenue (Month)"
-            value="$12,543"
-            icon={<DollarSign className="h-4 w-4 md:h-5 md:w-5" />}
+            value={Revenue}
+            icon={<RupeeIcon className="h-4 w-4 md:h-5 md:w-5" />}
             trend={{ value: 4, positive: true }}
           />
         </div>
