@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom"; 
+import { formatCurrency } from "@/utils/currencyUtils";
 
 // Sample data for recent orders
 const recentOrders = [
@@ -21,7 +22,7 @@ const recentOrders = [
     item: "Custom Suit",
     status: "pending",
     date: "2023-04-15",
-    price: "$250.00",
+    price: "250",
   },
   {
     id: "ORD-1235",
@@ -29,7 +30,7 @@ const recentOrders = [
     item: "Wedding Dress",
     status: "stitching",
     date: "2023-04-14",
-    price: "$350.00",
+    price: "350",
   },
   {
     id: "ORD-1236",
@@ -37,7 +38,7 @@ const recentOrders = [
     item: "Formal Shirt",
     status: "ready",
     date: "2023-04-13",
-    price: "$80.00",
+    price: "80",
   },
   {
     id: "ORD-1237",
@@ -45,7 +46,7 @@ const recentOrders = [
     item: "Evening Gown",
     status: "delivered",
     date: "2023-04-12",
-    price: "$200.00",
+    price: "200",
   },
   {
     id: "ORD-1238",
@@ -53,7 +54,7 @@ const recentOrders = [
     item: "Dress Pants",
     status: "pending",
     date: "2023-04-11",
-    price: "$95.00",
+    price: "95",
   },
 ];
 
@@ -115,7 +116,7 @@ export function RecentOrders() {
                     {StatusBadgeMap[order.status as keyof typeof StatusBadgeMap].label}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">{order.price}</TableCell>
+                <TableCell className="text-right">{formatCurrency(order.price)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
