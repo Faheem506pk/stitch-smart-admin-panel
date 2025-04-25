@@ -1,4 +1,3 @@
-
 import { Customer, Employee, Order, Measurement } from "@/types/models";
 
 // Sample Customers
@@ -12,6 +11,8 @@ export const customers: Customer[] = [
     notes: "Regular customer, prefers cotton fabrics.",
     createdAt: "2023-01-15T10:30:00Z",
     updatedAt: "2023-03-20T14:15:00Z",
+    profilePicture: null,
+    isWhatsApp: false
   },
   {
     id: "cust-002",
@@ -22,6 +23,8 @@ export const customers: Customer[] = [
     notes: "Wedding dress client.",
     createdAt: "2023-02-10T09:45:00Z",
     updatedAt: "2023-04-05T11:20:00Z",
+    profilePicture: null,
+    isWhatsApp: false
   },
   {
     id: "cust-003",
@@ -32,6 +35,8 @@ export const customers: Customer[] = [
     notes: "Prefers classic fits for business attire.",
     createdAt: "2023-01-22T13:15:00Z",
     updatedAt: "2023-03-10T10:05:00Z",
+    profilePicture: null,
+    isWhatsApp: true
   },
   {
     id: "cust-004",
@@ -42,6 +47,8 @@ export const customers: Customer[] = [
     notes: "Regular client for formal gowns.",
     createdAt: "2023-02-28T15:30:00Z",
     updatedAt: "2023-04-12T09:45:00Z",
+    profilePicture: null,
+    isWhatsApp: false
   },
   {
     id: "cust-005",
@@ -52,6 +59,8 @@ export const customers: Customer[] = [
     notes: "Allergic to wool fabrics.",
     createdAt: "2023-03-05T11:00:00Z",
     updatedAt: "2023-04-10T14:30:00Z",
+    profilePicture: null,
+    isWhatsApp: true
   },
 ];
 

@@ -22,7 +22,8 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   const [customerData, setCustomerData] = useState<CustomerFormData>({ 
     name: '', 
     phone: '', 
-    isWhatsApp: false 
+    isWhatsApp: false,
+    profilePicture: null
   });
   const [isSaving, setIsSaving] = useState(false);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);

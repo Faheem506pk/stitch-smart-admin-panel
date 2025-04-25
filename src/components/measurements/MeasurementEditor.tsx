@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,7 +104,11 @@ export function MeasurementEditor({ type, measurement, onSave, onCancel, customM
     }
     
     // Convert default fields to include type property
-    return defaultMeasurementFields[type as keyof typeof defaultMeasurementFields] || [];
+    return defaultMeasurementFields[type as keyof typeof defaultMeasurementFields] || []
+      .map(field => ({ 
+        ...field, 
+        type: 'number' as 'number' | 'text' 
+      }));
   };
 
   // Get title based on the type
