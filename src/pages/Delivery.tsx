@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -50,8 +49,14 @@ export default function Delivery() {
     
     // Subscribe to real-time order updates
     const unsubscribeOrders = customerService.subscribeToOrders((updatedOrders) => {
-      setOrders(updatedOrders);
-      applyFilters(updatedOrders, statusFilter, searchQuery);
+      // Ensure all orders have an items array to prevent errors
+      const validatedOrders = updatedOrders.map(order => ({
+        ...order,
+        items: order.items || [] // Ensure items is at least an empty array
+      }));
+      
+      setOrders(validatedOrders);
+      applyFilters(validatedOrders, statusFilter, searchQuery);
       setIsLoading(false);
     });
     
@@ -89,8 +94,8 @@ export default function Delivery() {
       const lowerQuery = query.toLowerCase();
       result = result.filter(order => {
         const customer = customers.get(order.customerId);
-        const customerName = customer?.name.toLowerCase() || '';
-        const orderIdMatch = order.id.toLowerCase().includes(lowerQuery);
+        const customerName = customer?.name?.toLowerCase() || '';
+        const orderIdMatch = order.id?.toLowerCase().includes(lowerQuery);
         const customerMatch = customerName.includes(lowerQuery);
         
         return orderIdMatch || customerMatch;
@@ -134,6 +139,11 @@ export default function Delivery() {
     stitching: filteredOrders.filter(order => order.status === 'stitching'),
     ready: filteredOrders.filter(order => order.status === 'ready'),
     delivered: filteredOrders.filter(order => order.status === 'delivered')
+  };
+
+  // Safe function to get items length with null check
+  const getItemsLength = (order) => {
+    return order?.items?.length || 0;
   };
 
   return (
@@ -218,24 +228,24 @@ export default function Delivery() {
                           return (
                             <TableRow key={order.id}>
                               <TableCell className="font-medium">
-                                {order.id.substring(0, 8)}...
+                                {order.id ? order.id.substring(0, 8) + '...' : 'N/A'}
                               </TableCell>
                               <TableCell>{customer ? customer.name : "Unknown"}</TableCell>
-                              <TableCell>{formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}</TableCell>
-                              <TableCell>{order.items.length}</TableCell>
-                              <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+                              <TableCell>{order.createdAt ? formatDistanceToNow(new Date(order.createdAt), { addSuffix: true }) : 'N/A'}</TableCell>
+                              <TableCell>{getItemsLength(order)}</TableCell>
+                              <TableCell>{formatCurrency(order.totalAmount || 0)}</TableCell>
                               <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center">
                                   <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                                  {format(new Date(order.dueDate), 'MMM dd, yyyy')}
+                                  {order.dueDate ? format(new Date(order.dueDate), 'MMM dd, yyyy') : 'N/A'}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <Badge
-                                  className={statusColors[order.status as keyof typeof statusColors]}
+                                  className={statusColors[order.status as keyof typeof statusColors] || ''}
                                   variant="outline"
                                 >
-                                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                  {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Unknown'}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right space-x-2">
@@ -305,11 +315,11 @@ export default function Delivery() {
                                 <div>
                                   <p className="font-medium">{customer?.name || "Unknown"}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                    {getItemsLength(order)} items • {formatCurrency(order.totalAmount || 0)}
                                   </p>
                                 </div>
                                 <div className="text-right text-sm">
-                                  <p>{format(new Date(order.dueDate), 'MMM dd')}</p>
+                                  <p>{order.dueDate ? format(new Date(order.dueDate), 'MMM dd') : 'N/A'}</p>
                                 </div>
                               </div>
                             </div>
@@ -352,11 +362,11 @@ export default function Delivery() {
                                 <div>
                                   <p className="font-medium">{customer?.name || "Unknown"}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                    {getItemsLength(order)} items • {formatCurrency(order.totalAmount || 0)}
                                   </p>
                                 </div>
                                 <div className="text-right text-sm">
-                                  <p>{format(new Date(order.dueDate), 'MMM dd')}</p>
+                                  <p>{order.dueDate ? format(new Date(order.dueDate), 'MMM dd') : 'N/A'}</p>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -407,7 +417,7 @@ export default function Delivery() {
                                 <div>
                                   <p className="font-medium">{customer?.name || "Unknown"}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                    {getItemsLength(order)} items • {formatCurrency(order.totalAmount || 0)}
                                   </p>
                                   {customer?.phone && (
                                     <p className="text-sm mt-1">
@@ -482,10 +492,11 @@ export default function Delivery() {
                         {ordersByStatus.delivered
                           .filter(order => {
                             // Only show deliveries from today
+                            if (!order) return false;
                             const today = new Date().toDateString();
                             const deliveredDate = order.deliveredAt 
                               ? new Date(order.deliveredAt).toDateString()
-                              : new Date(order.updatedAt).toDateString();
+                              : (order.updatedAt ? new Date(order.updatedAt).toDateString() : '');
                             return deliveredDate === today;
                           })
                           .map(order => {
@@ -499,7 +510,7 @@ export default function Delivery() {
                                   <div>
                                     <p className="font-medium">{customer?.name || "Unknown"}</p>
                                     <p className="text-sm text-muted-foreground">
-                                      {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                      {getItemsLength(order)} items • {formatCurrency(order.totalAmount || 0)}
                                     </p>
                                   </div>
                                   <div className="text-right text-sm">
