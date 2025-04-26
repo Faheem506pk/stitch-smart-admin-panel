@@ -1,58 +1,105 @@
-import { Layout } from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Database, FileText, User, Cloud, Image, Scissors, Trash } from "lucide-react";
-import { useState, useEffect } from "react";
-import { cloudinaryService } from "@/services/cloudinaryService";
-import { initializeFirebase, getFirebaseConfig, storeFirebaseConfig, firestoreService } from "@/services/firebase";
+
+import { useState, useEffect } from 'react';
+import { Layout } from '@/components/layout/Layout';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CustomMeasurementType, CustomMeasurementField } from '@/types/measurementTypes';
+import { firestoreService, FirebaseConfig, initializeFirebase } from '@/services/firebase';
 import { toast } from "sonner";
-import { CustomMeasurementField, CustomMeasurementType } from "@/types/measurementTypes";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FirebaseConfig } from "@/services/firebase";
+import { SettingsIcon, Database, Image, Scissors, FileText, User, RotateCcw, Plus, Trash, PenLine, Key, Check, X, RefreshCw } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Employee } from '@/types/models';
+import { employeeService } from '@/services/employeeService';
+import { EmployeeCredentials } from '@/components/auth/EmployeeCredentials';
 
-const defaultFirebaseConfig: FirebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
-};
-
-const defaultCloudinaryConfig = {
-  cloudName: "",
-  apiKey: "",
-  uploadPreset: ""
-};
-
-const Settings = () => {
-  const [activeTab, setActiveTab] = useState("general");
-  const [pinInput, setPinInput] = useState("");
+export default function Settings() {
+  const [activeTab, setActiveTab] = useState('general');
+  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig>({
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: ''
+  });
+  const [cloudinaryConfig, setCloudinaryConfig] = useState({
+    cloudName: '',
+    apiKey: '',
+    uploadPreset: ''
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [showPin, setShowPin] = useState(false);
-  const [currencySymbol, setCurrencySymbol] = useState('Rs.');
+  const [pinInput, setPinInput] = useState('');
+  const [currencySymbol, setCurrencySymbol] = useState(() => {
+    return localStorage.getItem('currency_symbol') || 'Rs.';
+  });
   const [measurementTypes, setMeasurementTypes] = useState<CustomMeasurementType[]>([]);
-  const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = useState(false);
-  const [newTypeName, setNewTypeName] = useState('');
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [isAddFieldDialogOpen, setIsAddFieldDialogOpen] = useState(false);
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState<'number' | 'text'>('number');
-  const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig>(defaultFirebaseConfig);
-  const [cloudinaryConfig, setCloudinaryConfig] = useState(defaultCloudinaryConfig);
+  const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = useState(false);
+  const [isAddFieldDialogOpen, setIsAddFieldDialogOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [selectedTypeId, setSelectedTypeId] = useState('');
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState<'text' | 'number'>('number');
+  const [newFieldRequired, setNewFieldRequired] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [isCredentialsDialogOpen, setIsCredentialsDialogOpen] = useState(false);
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
+  const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
+  const [newEmployee, setNewEmployee] = useState({
+    name: '',
+    email: '',
+    phoneNumber: '',
+    position: '',
+    role: 'employee' as 'admin' | 'employee',
+  });
 
+  // Fetch config data
   useEffect(() => {
-    const storedFirebaseConfig = getFirebaseConfig();
-    if (storedFirebaseConfig) {
-      setFirebaseConfig(storedFirebaseConfig);
+    const storedConfig = localStorage.getItem('firebase_config');
+    if (storedConfig) {
+      setFirebaseConfig(JSON.parse(storedConfig));
     }
     
     const storedCloudinaryConfig = localStorage.getItem('cloudinary_config');
@@ -60,14 +107,95 @@ const Settings = () => {
       setCloudinaryConfig(JSON.parse(storedCloudinaryConfig));
     }
     
-    const storedCurrency = localStorage.getItem('currency_symbol');
-    if (storedCurrency) {
-      setCurrencySymbol(storedCurrency);
+    fetchMeasurementTypes();
+    fetchEmployees();
+  }, []);
+  
+  // Check for correct PIN
+  const checkPin = () => {
+    const correctPin = '0000'; // This should be stored securely in a real app
+    if (pinInput === correctPin) {
+      setIsEditMode(true);
+      setShowPin(false);
+      setPinInput('');
+    } else {
+      toast.error('Incorrect PIN');
+    }
+  };
+  
+  // Save Firebase configuration
+  const saveFirebaseConfig = () => {
+    // Validate config
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+      toast.error('API Key and Project ID are required');
+      return;
     }
     
-    fetchMeasurementTypes();
-  }, []);
-
+    try {
+      localStorage.setItem('firebase_config', JSON.stringify(firebaseConfig));
+      
+      // Re-initialize Firebase with new config
+      const result = initializeFirebase(firebaseConfig);
+      if (result.initialized) {
+        toast.success('Firebase configuration saved successfully');
+        setIsEditMode(false);
+      } else {
+        toast.error('Failed to initialize Firebase with new config');
+      }
+    } catch (error) {
+      console.error('Error saving Firebase config:', error);
+      toast.error('Failed to save Firebase configuration');
+    }
+  };
+  
+  // Handle Firebase config changes
+  const handleFirebaseConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFirebaseConfig(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Save Cloudinary configuration
+  const saveCloudinaryConfig = () => {
+    // Validate config
+    if (!cloudinaryConfig.cloudName || !cloudinaryConfig.uploadPreset) {
+      toast.error('Cloud Name and Upload Preset are required');
+      return;
+    }
+    
+    try {
+      localStorage.setItem('cloudinary_config', JSON.stringify(cloudinaryConfig));
+      toast.success('Cloudinary configuration saved successfully');
+      setIsEditMode(false);
+    } catch (error) {
+      console.error('Error saving Cloudinary config:', error);
+      toast.error('Failed to save Cloudinary configuration');
+    }
+  };
+  
+  // Handle Cloudinary config changes
+  const handleCloudinaryConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCloudinaryConfig(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Save currency symbol
+  const saveCurrencySymbol = () => {
+    try {
+      localStorage.setItem('currency_symbol', currencySymbol);
+      toast.success('Currency symbol saved successfully');
+    } catch (error) {
+      console.error('Error saving currency symbol:', error);
+      toast.error('Failed to save currency symbol');
+    }
+  };
+  
+  // Fetch measurement types
   const fetchMeasurementTypes = async () => {
     setIsLoading(true);
     try {
@@ -87,55 +215,8 @@ const Settings = () => {
       setIsLoading(false);
     }
   };
-
-  const handleFirebaseConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFirebaseConfig(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleCloudinaryConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCloudinaryConfig(prev => ({ ...prev, [name]: value }));
-  };
-
-  const checkPin = () => {
-    const correctPin = "121450";
-    if (pinInput === correctPin) {
-      setIsEditMode(true);
-      setShowPin(false);
-      setPinInput("");
-    } else {
-      alert("Incorrect PIN. Please try again.");
-    }
-  };
-
-  const saveFirebaseConfig = () => {
-    storeFirebaseConfig(firebaseConfig);
-    initializeFirebase(firebaseConfig);
-    
-    alert("Firebase configuration saved and reinitialized!");
-    setIsEditMode(false);
-  };
-
-  const saveCloudinaryConfig = () => {
-    localStorage.setItem('cloudinary_config', JSON.stringify(cloudinaryConfig));
-    
-    cloudinaryService.updateConfig({
-      cloudName: cloudinaryConfig.cloudName,
-      apiKey: cloudinaryConfig.apiKey,
-      uploadPreset: cloudinaryConfig.uploadPreset
-    });
-    
-    alert("Cloudinary configuration saved!");
-    setIsEditMode(false);
-  };
-
-  const saveCurrencySymbol = () => {
-    localStorage.setItem('currency_symbol', currencySymbol);
-    toast.success('Currency symbol updated successfully!');
-  };
-
   
+  // Add measurement type
   const addMeasurementType = async () => {
     if (!newTypeName.trim()) {
       toast.error('Please enter a type name');
@@ -183,6 +264,7 @@ const Settings = () => {
     }
   };
 
+  // Add field to type
   const addFieldToType = async () => {
     if (!selectedTypeId) return;
     if (!newFieldName.trim()) {
@@ -231,6 +313,7 @@ const Settings = () => {
     }
   };
 
+  // Delete field
   const deleteField = async (typeId: string, fieldId: string) => {
     const selectedType = measurementTypes.find(type => type.id === typeId);
     if (!selectedType) return;
@@ -261,6 +344,7 @@ const Settings = () => {
     }
   };
 
+  // Delete measurement type
   const deleteMeasurementType = async (typeId: string) => {
     try {
       if (firestoreService.isFirebaseInitialized()) {
@@ -278,6 +362,152 @@ const Settings = () => {
       toast.error('Failed to delete measurement type');
     }
   };
+  
+  // Fetch employees
+  const fetchEmployees = async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const fetchedEmployees = await employeeService.getEmployees();
+      setEmployees(fetchedEmployees);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      toast.error('Failed to load employees');
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+  
+  // Add new employee
+  const addNewEmployee = async () => {
+    if (!newEmployee.name || !newEmployee.email || !newEmployee.position) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+    
+    try {
+      // Create the new employee
+      const employeeData = {
+        ...newEmployee,
+        hireDate: new Date().toISOString(),
+        permissions: getDefaultPermissions(newEmployee.role),
+        passwordResetRequired: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const addedEmployee = await employeeService.addEmployee(employeeData);
+      
+      if (addedEmployee) {
+        toast.success('Employee added successfully!');
+        setNewEmployee({
+          name: '',
+          email: '',
+          phoneNumber: '',
+          position: '',
+          role: 'employee',
+        });
+        setIsAddEmployeeDialogOpen(false);
+        fetchEmployees();
+        
+        // Open credentials dialog for the new employee
+        setCurrentEmployee(addedEmployee);
+        setIsCredentialsDialogOpen(true);
+      }
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      toast.error('Failed to add employee');
+    }
+  };
+  
+  // Delete employee
+  const deleteEmployee = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this employee?')) {
+      return;
+    }
+    
+    try {
+      const success = await employeeService.deleteEmployee(id);
+      if (success) {
+        toast.success('Employee deleted successfully!');
+        fetchEmployees();
+      }
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      toast.error('Failed to delete employee');
+    }
+  };
+  
+  // Reset employee password
+  const resetEmployeePassword = async (employee: Employee) => {
+    try {
+      const success = await employeeService.requestPasswordReset(employee.id);
+      if (success) {
+        toast.success('Password reset requested successfully!');
+        fetchEmployees();
+      }
+    } catch (error) {
+      console.error('Error requesting password reset:', error);
+      toast.error('Failed to request password reset');
+    }
+  };
+  
+  // Update employee permissions
+  const updateEmployeeRole = async (id: string, role: 'admin' | 'employee') => {
+    try {
+      const success = await employeeService.updateEmployee(id, { 
+        role,
+        permissions: getDefaultPermissions(role),
+        updatedAt: new Date().toISOString()
+      });
+      
+      if (success) {
+        toast.success('Employee role updated successfully!');
+        fetchEmployees();
+      }
+    } catch (error) {
+      console.error('Error updating employee role:', error);
+      toast.error('Failed to update employee role');
+    }
+  };
+  
+  // Get default permissions based on role
+  const getDefaultPermissions = (role: 'admin' | 'employee') => {
+    if (role === 'admin') {
+      return {
+        customers: { view: true, add: true, edit: true, delete: true },
+        orders: { view: true, add: true, edit: true, delete: true },
+        measurements: { view: true, add: true, edit: true },
+        payments: { view: true, add: true },
+        employees: { view: true, add: true, edit: true, delete: true },
+        settings: { view: true, edit: true },
+      };
+    } else {
+      return {
+        customers: { view: true, add: true, edit: true, delete: false },
+        orders: { view: true, add: true, edit: true, delete: false },
+        measurements: { view: true, add: true, edit: true },
+        payments: { view: true, add: true },
+        employees: { view: false, add: false, edit: false, delete: false },
+        settings: { view: false, edit: false },
+      };
+    }
+  };
+  
+  // Open edit credentials dialog
+  const openEditCredentials = (employee: Employee) => {
+    setCurrentEmployee(employee);
+    setIsCredentialsDialogOpen(true);
+  };
+  
+  // Handle new employee input change
+  const handleEmployeeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewEmployee(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
   return (
     <Layout>
       <div className="flex flex-col gap-6">
@@ -612,7 +842,10 @@ const Settings = () => {
                     Create and manage custom measurement types and fields.
                   </CardDescription>
                 </div>
-                <Button onClick={() => setIsAddTypeDialogOpen(true)}>Add Type</Button>
+                <Button onClick={() => setIsAddTypeDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Type
+                </Button>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -642,6 +875,7 @@ const Settings = () => {
                                 setIsAddFieldDialogOpen(true);
                               }}
                             >
+                              <Plus className="h-4 w-4 mr-1" />
                               Add Field
                             </Button>
                             <Button
@@ -690,77 +924,222 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="business" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Business Settings</CardTitle>
+                <CardTitle>Business Information</CardTitle>
                 <CardDescription>
-                  Configure business-specific settings.
+                  Manage your business details and preferences
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Business settings will be implemented here.</p>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="businessName">Business Name</Label>
+                  <Input id="businessName" placeholder="Your Business Name" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="businessLogo">Business Logo</Label>
+                  <Input id="businessLogo" type="file" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="tagline">Tagline</Label>
+                  <Input id="tagline" placeholder="Your business tagline" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="businessDescription">Business Description</Label>
+                  <Textarea 
+                    id="businessDescription" 
+                    placeholder="Describe your business"
+                    className="min-h-[100px]"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Receipt Settings</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Switch id="showLogo" />
+                      <Label htmlFor="showLogo">Show Logo on Receipt</Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Switch id="showAddress" defaultChecked />
+                      <Label htmlFor="showAddress">Show Address on Receipt</Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Switch id="showContact" defaultChecked />
+                      <Label htmlFor="showContact">Show Contact Info on Receipt</Label>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button>Save Business Settings</Button>
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="users" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>
-                  Manage user accounts and permissions.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>User Management</CardTitle>
+                  <CardDescription>
+                    Manage user accounts and permissions
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setIsAddEmployeeDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Employee
+                </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">User management will be implemented here.</p>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Position</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoadingEmployees ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            <div className="flex justify-center items-center">
+                              <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : employees.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            <p className="text-muted-foreground">No employees found</p>
+                            <p className="text-muted-foreground text-sm">
+                              Add your first employee to get started
+                            </p>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        employees.map((employee) => (
+                          <TableRow key={employee.id}>
+                            <TableCell className="font-medium">{employee.name}</TableCell>
+                            <TableCell>{employee.email}</TableCell>
+                            <TableCell>{employee.position}</TableCell>
+                            <TableCell>
+                              <Select
+                                value={employee.role}
+                                onValueChange={(value) => updateEmployeeRole(employee.id, value as 'admin' | 'employee')}
+                              >
+                                <SelectTrigger className="w-[120px]">
+                                  <SelectValue placeholder="Select role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="employee">Employee</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => resetEmployeePassword(employee)}
+                                className="h-8"
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Reset
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditCredentials(employee)}
+                                className="h-8"
+                              >
+                                <PenLine className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteEmployee(employee.id)}
+                                className="h-8 text-destructive hover:text-destructive"
+                              >
+                                <Trash className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
-
+      
+      {/* Add Type Dialog */}
       <Dialog open={isAddTypeDialogOpen} onOpenChange={setIsAddTypeDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Measurement Type</DialogTitle>
+            <DialogTitle>Add New Measurement Type</DialogTitle>
+            <DialogDescription>
+              Create a new custom measurement type for your tailor shop
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="typeName">Type Name</Label>
               <Input
                 id="typeName"
+                placeholder="e.g., Kurta, Sherwani, etc."
                 value={newTypeName}
                 onChange={(e) => setNewTypeName(e.target.value)}
-                placeholder="e.g., Shirt, Kurta, Waistcoat"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddTypeDialogOpen(false)}>
+              <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            <Button onClick={addMeasurementType}>Add Type</Button>
+            <Button onClick={addMeasurementType}>
+              <Check className="h-4 w-4 mr-2" />
+              Add Type
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      
+      {/* Add Field Dialog */}
       <Dialog open={isAddFieldDialogOpen} onOpenChange={setIsAddFieldDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Measurement Field</DialogTitle>
+            <DialogTitle>Add New Measurement Field</DialogTitle>
+            <DialogDescription>
+              Add a custom measurement field to this type
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="fieldName">Field Name</Label>
               <Input
                 id="fieldName"
+                placeholder="e.g., Chest, Waist, etc."
                 value={newFieldName}
                 onChange={(e) => setNewFieldName(e.target.value)}
-                placeholder="e.g., Chest, Waist, Length"
               />
             </div>
+            
             <div className="space-y-2">
               <Label htmlFor="fieldType">Field Type</Label>
               <Select 
@@ -771,30 +1150,128 @@ const Settings = () => {
                   <SelectValue placeholder="Select field type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="number">Number (inches)</SelectItem>
                   <SelectItem value="text">Text</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            
             <div className="flex items-center space-x-2">
-              <Switch 
-                id="required"
+              <Switch
+                id="fieldRequired"
                 checked={newFieldRequired}
                 onCheckedChange={setNewFieldRequired}
               />
-              <Label htmlFor="required">Required Field</Label>
+              <Label htmlFor="fieldRequired">Required Field</Label>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddFieldDialogOpen(false)}>
+              <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            <Button onClick={addFieldToType}>Add Field</Button>
+            <Button onClick={addFieldToType}>
+              <Check className="h-4 w-4 mr-2" />
+              Add Field
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Add Employee Dialog */}
+      <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Employee</DialogTitle>
+            <DialogDescription>
+              Create a new employee account
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employeeName">Full Name</Label>
+              <Input
+                id="employeeName"
+                name="name"
+                placeholder="Employee Name"
+                value={newEmployee.name}
+                onChange={handleEmployeeInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="employeeEmail">Email</Label>
+              <Input
+                id="employeeEmail"
+                type="email"
+                name="email"
+                placeholder="employee@example.com"
+                value={newEmployee.email}
+                onChange={handleEmployeeInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="employeePhone">Phone Number</Label>
+              <Input
+                id="employeePhone"
+                name="phoneNumber"
+                placeholder="03XX-XXXXXXX"
+                value={newEmployee.phoneNumber}
+                onChange={handleEmployeeInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="employeePosition">Position</Label>
+              <Input
+                id="employeePosition"
+                name="position"
+                placeholder="e.g., Tailor, Manager, etc."
+                value={newEmployee.position}
+                onChange={handleEmployeeInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="employeeRole">Role</Label>
+              <Select 
+                value={newEmployee.role}
+                onValueChange={(value) => setNewEmployee(prev => ({
+                  ...prev,
+                  role: value as 'admin' | 'employee'
+                }))}
+              >
+                <SelectTrigger id="employeeRole">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddEmployeeDialogOpen(false)}>
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button onClick={addNewEmployee}>
+              <Check className="h-4 w-4 mr-2" />
+              Add Employee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Employee Credentials Dialog */}
+      <EmployeeCredentials
+        isOpen={isCredentialsDialogOpen}
+        onClose={() => setIsCredentialsDialogOpen(false)}
+        employee={currentEmployee}
+        mode="update"
+      />
     </Layout>
   );
-};
-
-export default Settings;
+}

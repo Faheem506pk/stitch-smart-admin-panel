@@ -1,12 +1,13 @@
 
 import { firestoreService } from '@/services/firebase';
-import { Customer, Measurement, Order, Payment } from '@/types/models';
+import { Customer, Measurement, Order, Payment, Employee } from '@/types/models';
 import { toast } from "sonner";
 
 const CUSTOMER_COLLECTION = 'customers';
 const MEASUREMENT_COLLECTION = 'measurements';
 const ORDER_COLLECTION = 'orders';
 const PAYMENT_COLLECTION = 'payments';
+const EMPLOYEE_COLLECTION = 'employees';
 
 export const customerService = {
   // Add a new customer
@@ -40,9 +41,8 @@ export const customerService = {
   // Get customer by ID
   getCustomerById: async (id: string): Promise<Customer | null> => {
     try {
-      const customers = await firestoreService.getDocuments(CUSTOMER_COLLECTION);
-      const customer = (customers as Customer[]).find(c => c.id === id);
-      return customer || null;
+      const customer = await firestoreService.getDocumentById(CUSTOMER_COLLECTION, id);
+      return customer as Customer || null;
     } catch (error) {
       console.error("Error fetching customer by ID:", error);
       toast.error("Failed to find customer");
@@ -115,6 +115,11 @@ export const customerService = {
       toast.error("Failed to add measurement");
       return null;
     }
+  },
+  
+  // Add customer measurement
+  addCustomerMeasurement: async (measurement: Omit<Measurement, 'id'>): Promise<Measurement | null> => {
+    return customerService.addMeasurement(measurement);
   },
   
   // Get measurements for a customer
@@ -218,6 +223,18 @@ export const customerService = {
     }
   },
   
+  // Get all orders
+  getAllOrders: async (): Promise<Order[]> => {
+    try {
+      const orders = await firestoreService.getDocuments(ORDER_COLLECTION);
+      return orders as Order[];
+    } catch (error) {
+      console.error("Error fetching all orders:", error);
+      toast.error("Failed to load orders");
+      return [];
+    }
+  },
+  
   // Update order
   updateOrder: async (id: string, data: Partial<Order>): Promise<boolean> => {
     try {
@@ -295,5 +312,84 @@ export const customerService = {
       toast.error("Failed to load payments");
       return [];
     }
+  },
+  
+  // === EMPLOYEES SECTION === //
+  
+  // Get all employees
+  getEmployees: async (): Promise<Employee[]> => {
+    try {
+      const employees = await firestoreService.getDocuments(EMPLOYEE_COLLECTION);
+      return employees as Employee[];
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      toast.error("Failed to load employees");
+      return [];
+    }
+  },
+  
+  // Get employee by email
+  getEmployeeByEmail: async (email: string): Promise<Employee | null> => {
+    try {
+      const employees = await firestoreService.getDocumentsByField(EMPLOYEE_COLLECTION, 'email', email);
+      return employees.length > 0 ? employees[0] as Employee : null;
+    } catch (error) {
+      console.error("Error fetching employee by email:", error);
+      toast.error("Failed to find employee");
+      return null;
+    }
+  },
+  
+  // Add an employee
+  addEmployee: async (employee: Omit<Employee, 'id'>): Promise<Employee | null> => {
+    try {
+      const result = await firestoreService.addDocument(EMPLOYEE_COLLECTION, employee);
+      if (result) {
+        toast.success("Employee added successfully!");
+        return result as Employee;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error adding employee:", error);
+      toast.error("Failed to add employee");
+      return null;
+    }
+  },
+  
+  // Update employee
+  updateEmployee: async (id: string, data: Partial<Employee>): Promise<boolean> => {
+    try {
+      const success = await firestoreService.updateDocument(EMPLOYEE_COLLECTION, id, data);
+      if (success) {
+        toast.success("Employee updated successfully!");
+      }
+      return success;
+    } catch (error) {
+      console.error("Error updating employee:", error);
+      toast.error("Failed to update employee");
+      return false;
+    }
+  },
+  
+  // Delete employee
+  deleteEmployee: async (id: string): Promise<boolean> => {
+    try {
+      const success = await firestoreService.deleteDocument(EMPLOYEE_COLLECTION, id);
+      if (success) {
+        toast.success("Employee deleted successfully!");
+      }
+      return success;
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      toast.error("Failed to delete employee");
+      return false;
+    }
+  },
+  
+  // Subscribe to employees
+  subscribeToEmployees: (callback: (employees: Employee[]) => void) => {
+    return firestoreService.subscribeToCollection(EMPLOYEE_COLLECTION, (data) => {
+      callback(data as Employee[]);
+    });
   }
 };

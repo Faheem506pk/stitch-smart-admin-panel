@@ -1,12 +1,15 @@
+
 import { useState, useEffect } from 'react';
 import { AddCustomerStepCheck } from './AddCustomerStepCheck';
 import { AddCustomerStepInfo } from './AddCustomerStepInfo';
 import { AddCustomerStepMeasurements } from './AddCustomerStepMeasurements';
 import { AddCustomerStepAnimator } from './AddCustomerStepAnimator';
+import { AddCustomerStepOrder } from './AddCustomerStepOrder';
+import { AddCustomerStepPayment } from './AddCustomerStepPayment';
 import { Customer, Measurement } from '@/types/models';
 import { customerService } from '@/services/customerService';
 import { toast } from "sonner";
-import { CustomerFormData, MeasurementFormData } from './addCustomerFlowTypes';
+import { CustomerFormData, MeasurementFormData, OrderFormData, PaymentFormData } from './addCustomerFlowTypes';
 import { MeasurementManager } from '@/components/measurements/MeasurementManager';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -31,6 +34,20 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
   const [measurementData, setMeasurementData] = useState<MeasurementFormData>({
     type: 'shirt',
     values: {}
+  });
+  const [orderData, setOrderData] = useState<OrderFormData>({
+    items: [],
+    totalAmount: 0,
+    advanceAmount: 0,
+    balanceAmount: 0,
+    status: 'pending',
+    dueDate: ''
+  });
+  const [paymentData, setPaymentData] = useState<PaymentFormData>({
+    totalAmount: 0,
+    advanceAmount: 0,
+    balanceAmount: 0,
+    paymentMethod: 'cash'
   });
 
   useEffect(() => {
@@ -164,14 +181,88 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
 
         await customerService.addCustomerMeasurement(measurementToSave);
         toast.success("Measurement added successfully!");
+        goToNextStep();
         return true;
       } else {
+        // If no measurements to save, just proceed
+        goToNextStep();
         return true;
       }
     } catch (error) {
       console.error("Error saving measurement:", error);
       toast.error("Failed to save measurement. Please try again.");
       return false;
+    }
+  };
+
+  const handleSaveOrder = async () => {
+    if (!savedCustomerId) {
+      toast.error("Please save customer first");
+      return false;
+    }
+
+    try {
+      // Update payment data based on order data
+      setPaymentData({
+        totalAmount: orderData.totalAmount,
+        advanceAmount: orderData.advanceAmount,
+        balanceAmount: orderData.balanceAmount,
+        paymentMethod: 'cash'
+      });
+
+      goToNextStep();
+      return true;
+    } catch (error) {
+      console.error("Error preparing order:", error);
+      toast.error("Failed to prepare order. Please try again.");
+      return false;
+    }
+  };
+
+  const handleCompleteFlow = async () => {
+    if (!savedCustomerId) {
+      toast.error("Error with customer data");
+      return;
+    }
+
+    try {
+      if (orderData.items.length > 0) {
+        const orderToSave = {
+          customerId: savedCustomerId,
+          items: orderData.items,
+          status: orderData.status,
+          totalAmount: orderData.totalAmount,
+          advanceAmount: paymentData.advanceAmount,
+          balanceAmount: paymentData.balanceAmount,
+          dueDate: orderData.dueDate,
+          notes: orderData.notes,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'current-user-id', // This should come from auth context
+          lastUpdatedBy: 'current-user-id' // This should come from auth context
+        };
+
+        const savedOrder = await customerService.addOrder(orderToSave);
+        if (savedOrder && paymentData.advanceAmount > 0) {
+          const paymentToSave = {
+            orderId: savedOrder.id,
+            amount: paymentData.advanceAmount,
+            paymentMethod: paymentData.paymentMethod,
+            date: new Date().toISOString(),
+            notes: paymentData.notes,
+            receivedBy: 'current-user-id' // This should come from auth context
+          };
+          await customerService.addPayment(paymentToSave);
+        }
+
+        toast.success("Order and payment processed successfully!");
+      }
+
+      // Complete the flow and close the modal
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error completing flow:", error);
+      toast.error("Failed to complete. Please try again.");
     }
   };
 
@@ -189,7 +280,11 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
           <AddCustomerStepInfo
             customerData={customerData}
             setCustomerData={setCustomerData}
-            onSave={handleSaveCustomer}
+            onSave={async () => {
+              const success = await handleSaveCustomer();
+              if (success) goToNextStep();
+              return success;
+            }}
             onBack={goToPreviousStep}
             isExisting={!!existingCustomer}
             isSaving={isSaving}
@@ -205,6 +300,26 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             onSkip={() => goToNextStep()}
             customerId={savedCustomerId}
             isExisting={!!existingCustomer}
+          />
+        );
+      case 4:
+        return (
+          <AddCustomerStepOrder
+            orderData={orderData}
+            setOrderData={setOrderData}
+            onNext={handleSaveOrder}
+            onBack={goToPreviousStep}
+            onSkip={() => goToNextStep()}
+          />
+        );
+      case 5:
+        return (
+          <AddCustomerStepPayment
+            paymentData={paymentData}
+            setPaymentData={setPaymentData}
+            orderTotal={orderData.totalAmount}
+            onComplete={handleCompleteFlow}
+            onBack={goToPreviousStep}
           />
         );
       default:
@@ -229,7 +344,7 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
               {renderStep()}
             </AddCustomerStepAnimator>
             
-            {existingCustomer && (
+            {existingCustomer && step <= 3 && (
               <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-medium mb-4">Customer Measurements</h3>
                 <ScrollArea className="h-[300px]">

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { MeasurementFormData } from './addCustomerFlowTypes';
 import { customerService } from '@/services/customerService';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
 import { Scissors, Loader2 } from 'lucide-react';
 import { firestoreService } from '@/services/firebase';
 import { CustomMeasurementType } from '@/types/measurementTypes';
@@ -23,7 +24,7 @@ interface AddCustomerStepMeasurementsProps {
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
-  customerId?: string;
+  customerId?: string | null;
   isExisting: boolean;
 }
 
@@ -80,7 +81,6 @@ export function AddCustomerStepMeasurements({
   isExisting
 }: AddCustomerStepMeasurementsProps) {
   const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
   const [customMeasurementTypes, setCustomMeasurementTypes] = useState<CustomMeasurementType[]>([]);
   const [isLoadingTypes, setIsLoadingTypes] = useState(false);
   
@@ -179,6 +179,7 @@ export function AddCustomerStepMeasurements({
           <Select
             value={measurementData.type}
             onValueChange={handleTypeChange}
+            defaultValue="shirt"
           >
             <SelectTrigger id="measurementType">
               <SelectValue placeholder="Select type" />

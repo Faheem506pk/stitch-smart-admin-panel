@@ -1,223 +1,139 @@
 
+import { useState, useEffect } from 'react';
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, FileText, Truck, Search, Package, ArrowRight, Bell } from "lucide-react";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
-import { getDeliveryItemsByStatus, updateDeliveryStatus, syncDeliveriesWithFirebase } from "@/services/deliveryService";
-import { useStore } from "@/store/useStore";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { customerService } from '@/services/customerService';
+import { formatCurrency } from '@/utils/currencyUtils';
+import { formatDistanceToNow, format } from 'date-fns';
+import { Order, Customer } from '@/types/models';
+import { CalendarIcon, CheckCircle, Search, Package, Truck } from 'lucide-react';
 import { toast } from "sonner";
-import { format, addDays, isBefore } from "date-fns";
 
-interface DeliveryItem {
-  id?: number;
-  orderId: string;
-  orderNumber: string;
-  customerId: string;
-  customerName: string;
-  customerPhone: string;
-  items: string[];
-  status: 'pending' | 'in-transit' | 'delivered' | 'cancelled';
-  dueDate: string;
-  deliveryDate?: string;
-  deliveryAgent?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const statusColors = {
+  'pending': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  'stitching': 'bg-blue-100 text-blue-800 border-blue-300',
+  'ready': 'bg-green-100 text-green-800 border-green-300',
+  'delivered': 'bg-purple-100 text-purple-800 border-purple-300',
+};
 
-// Sample delivery data for demonstration
-const sampleDeliveries: DeliveryItem[] = [
-  {
-    id: 1,
-    orderId: 'ord-1234',
-    orderNumber: '1234',
-    customerId: 'cust-1',
-    customerName: 'Ahmed Khan',
-    customerPhone: '0301-5551234',
-    items: ['2x Shirts', '1x Pants'],
-    status: 'pending',
-    dueDate: addDays(new Date(), 2).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    orderId: 'ord-1235',
-    orderNumber: '1235',
-    customerId: 'cust-2',
-    customerName: 'Ayesha Malik',
-    customerPhone: '0302-5555678',
-    items: ['1x Dress'],
-    status: 'pending',
-    dueDate: addDays(new Date(), 5).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    orderId: 'ord-1236',
-    orderNumber: '1236',
-    customerId: 'cust-3',
-    customerName: 'Bilal Ahmed',
-    customerPhone: '0303-5559012',
-    items: ['3x Shirts', '2x Suits'],
-    status: 'in-transit',
-    dueDate: addDays(new Date(), 1).toISOString(),
-    deliveryAgent: 'Usman Tariq',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 4,
-    orderId: 'ord-1237',
-    orderNumber: '1237',
-    customerId: 'cust-4',
-    customerName: 'Fatima Zahra',
-    customerPhone: '0304-5553456',
-    items: ['1x Wedding Dress'],
-    status: 'delivered',
-    dueDate: addDays(new Date(), -2).toISOString(),
-    deliveryDate: addDays(new Date(), -3).toISOString(),
-    deliveryAgent: 'Usman Tariq',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const Delivery = () => {
-  const [deliveryTab, setDeliveryTab] = useState("pending");
-  const [searchQuery, setSearchQuery] = useState("");
+export default function Delivery() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Map<string, Customer>>(new Map());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [deliveries, setDeliveries] = useState<DeliveryItem[]>([]);
-  const [filteredDeliveries, setFilteredDeliveries] = useState<DeliveryItem[]>([]);
-  const [selectedDelivery, setSelectedDelivery] = useState<DeliveryItem | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const { isOnline } = useStore();
-
-  // Load deliveries based on tab
+  
+  // Fetch orders and subscribe to changes
   useEffect(() => {
-    const loadDeliveries = async () => {
-      setIsLoading(true);
-      try {
-        // In a real implementation, this would fetch from IndexedDB
-        // const items = await getDeliveryItemsByStatus(deliveryTab === 'all' ? '' : deliveryTab);
-        
-        // For demo purposes, we'll use sample data
-        setTimeout(() => {
-          let items;
-          if (deliveryTab === 'all') {
-            items = sampleDeliveries;
-          } else {
-            items = sampleDeliveries.filter(d => d.status === deliveryTab);
-          }
-          setDeliveries(items);
-          setIsLoading(false);
-        }, 700);
-      } catch (error) {
-        console.error('Error loading deliveries:', error);
-        toast.error('Failed to load deliveries');
-        setIsLoading(false);
-      }
+    setIsLoading(true);
+    
+    // Subscribe to real-time order updates
+    const unsubscribeOrders = customerService.subscribeToOrders((updatedOrders) => {
+      setOrders(updatedOrders);
+      applyFilters(updatedOrders, statusFilter, searchQuery);
+      setIsLoading(false);
+    });
+    
+    // Subscribe to customer updates for name lookups
+    const unsubscribeCustomers = customerService.subscribeToCustomers((customersList) => {
+      const customersMap = new Map<string, Customer>();
+      customersList.forEach(customer => {
+        customersMap.set(customer.id, customer);
+      });
+      setCustomers(customersMap);
+    });
+    
+    // Cleanup subscriptions on unmount
+    return () => {
+      if (unsubscribeOrders) unsubscribeOrders();
+      if (unsubscribeCustomers) unsubscribeCustomers();
     };
-
-    loadDeliveries();
-  }, [deliveryTab]);
-
-  // Apply search filter
+  }, []);
+  
+  // Filter orders when search or status changes
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredDeliveries(deliveries);
-      return;
+    applyFilters(orders, statusFilter, searchQuery);
+  }, [statusFilter, searchQuery]);
+  
+  const applyFilters = (ordersList: Order[], status: string, query: string) => {
+    let result = [...ordersList];
+    
+    // Apply status filter
+    if (status !== 'all') {
+      result = result.filter(order => order.status === status);
     }
-
-    const query = searchQuery.toLowerCase().trim();
-    const filtered = deliveries.filter(delivery => 
-      delivery.orderNumber.toLowerCase().includes(query) ||
-      delivery.customerName.toLowerCase().includes(query) ||
-      delivery.customerPhone.includes(query)
-    );
     
-    setFilteredDeliveries(filtered);
-  }, [searchQuery, deliveries]);
-
-  // Check if delivery is urgent (due within 24 hours)
-  const isDeliveryUrgent = (dueDate: string) => {
-    const due = new Date(dueDate);
-    const tomorrow = addDays(new Date(), 1);
-    return isBefore(due, tomorrow);
+    // Apply search filter - search by customer name or order ID
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      result = result.filter(order => {
+        const customer = customers.get(order.customerId);
+        const customerName = customer?.name.toLowerCase() || '';
+        const orderIdMatch = order.id.toLowerCase().includes(lowerQuery);
+        const customerMatch = customerName.includes(lowerQuery);
+        
+        return orderIdMatch || customerMatch;
+      });
+    }
+    
+    setFilteredOrders(result);
   };
-
-  // Update delivery status
-  const handleUpdateStatus = async (id: number | undefined, newStatus: 'pending' | 'in-transit' | 'delivered' | 'cancelled') => {
-    if (!id) return;
-    
+  
+  // Update order status
+  const updateOrderStatus = async (orderId: string, newStatus: 'pending' | 'stitching' | 'ready' | 'delivered') => {
     try {
-      // For demo purposes, update in the local state
-      // In a real implementation, call updateDeliveryStatus(id, newStatus)
+      const success = await customerService.updateOrder(orderId, { 
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+        ...(newStatus === 'delivered' ? { deliveredAt: new Date().toISOString() } : {})
+      });
       
-      const updatedDeliveries = deliveries.map(d => 
-        d.id === id ? { ...d, status: newStatus } : d
-      );
-      
-      setDeliveries(updatedDeliveries);
-      setDetailsOpen(false);
-      
-      if (newStatus === 'delivered') {
-        toast.success('Order successfully delivered!');
-      } else if (newStatus === 'in-transit') {
-        toast.success('Order marked as in transit');
-      } else {
-        toast.success(`Order status updated to ${newStatus}`);
+      if (success) {
+        toast.success(`Order marked as ${newStatus}`);
       }
     } catch (error) {
-      console.error('Error updating delivery status:', error);
-      toast.error('Failed to update delivery status');
+      console.error("Error updating order status:", error);
+      toast.error("Failed to update order status");
     }
   };
-
-  // Show delivery details
-  const handleShowDetails = (delivery: DeliveryItem) => {
-    setSelectedDelivery(delivery);
-    setDetailsOpen(true);
+  
+  // Mark order as ready for delivery
+  const markAsReady = (orderId: string) => {
+    updateOrderStatus(orderId, 'ready');
   };
-
-  // Sync with Firebase
-  const handleSync = async () => {
-    if (!isOnline) {
-      toast.error('Cannot sync while offline');
-      return;
-    }
-    
-    toast.promise(
-      syncDeliveriesWithFirebase(isOnline),
-      {
-        loading: 'Syncing with cloud...',
-        success: 'Deliveries synchronized successfully',
-        error: 'Failed to sync deliveries'
-      }
-    );
+  
+  // Mark order as delivered
+  const markAsDelivered = (orderId: string) => {
+    updateOrderStatus(orderId, 'delivered');
   };
-
-  // Render the badge for delivery status
-  const renderStatusBadge = (status: string) => {
-    switch(status) {
-      case 'pending':
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">Ready for delivery</Badge>;
-      case 'in-transit':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">In transit</Badge>;
-      case 'delivered':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Delivered</Badge>;
-      case 'cancelled':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Cancelled</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+  
+  // Group orders by status for the dashboard view
+  const ordersByStatus = {
+    pending: filteredOrders.filter(order => order.status === 'pending'),
+    stitching: filteredOrders.filter(order => order.status === 'stitching'),
+    ready: filteredOrders.filter(order => order.status === 'ready'),
+    delivered: filteredOrders.filter(order => order.status === 'delivered')
   };
 
   return (
@@ -225,520 +141,385 @@ const Delivery = () => {
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Delivery Tracking</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-3xl font-bold tracking-tight">Delivery Management</h1>
+            <p className="text-muted-foreground">
               Track and manage order deliveries.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleSync} 
-              variant="outline" 
-              size="sm"
-              disabled={!isOnline}
-              className="hidden md:flex"
-            >
-              <Package className="h-4 w-4 mr-1" />
-              Sync Orders
-            </Button>
-          </div>
         </div>
         
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <CardTitle>Deliveries</CardTitle>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  type="search" 
-                  placeholder="Search orders..." 
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="pending" onValueChange={setDeliveryTab}>
-              <TabsList className="mb-4 w-full md:w-auto overflow-auto">
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="in-transit">In Transit</TabsTrigger>
-                <TabsTrigger value="delivered">Delivered</TabsTrigger>
-                <TabsTrigger value="all">All Orders</TabsTrigger>
-              </TabsList>
-              
-              {/* Tab Content - Pending */}
-              <TabsContent value="pending" className="space-y-4">
-                {isLoading ? (
-                  // Loading skeleton
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="p-4 border rounded-md">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredDeliveries.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Package className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No pending deliveries found</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    {filteredDeliveries.map((delivery) => (
-                      <div 
-                        key={delivery.id} 
-                        className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 border-b hover:bg-muted/40 transition-colors last:border-b-0"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">Order #{delivery.orderNumber}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {isDeliveryUrgent(delivery.dueDate) && (
-                              <span className="text-red-500 font-medium flex items-center gap-1">
-                                <Bell className="h-3 w-3" /> Urgent
-                              </span>
-                            )}
-                            {!isDeliveryUrgent(delivery.dueDate) && (
-                              <span>Due in {Math.round((new Date(delivery.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days</span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.customerName}</p>
-                          <p className="text-xs text-muted-foreground">{delivery.customerPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.items.join(', ')}</p>
-                          {renderStatusBadge(delivery.status)}
-                        </div>
-                        <div>
-                          <p className="text-sm">Due Date:</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(delivery.dueDate), 'MMMM dd, yyyy')}</p>
-                        </div>
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleShowDetails(delivery)}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Details</span>
-                          </Button>
-                          <Button 
-                            size="sm"
-                            onClick={() => handleUpdateStatus(delivery.id, 'in-transit')}
-                          >
-                            <Truck className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Start Delivery</span>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-              
-              {/* Tab Content - In Transit */}
-              <TabsContent value="in-transit" className="space-y-4">
-                {isLoading ? (
-                  // Loading skeleton
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="p-4 border rounded-md">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredDeliveries.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Truck className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No orders currently in transit</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    {filteredDeliveries.map((delivery) => (
-                      <div 
-                        key={delivery.id} 
-                        className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 border-b hover:bg-muted/40 transition-colors last:border-b-0"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">Order #{delivery.orderNumber}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {isDeliveryUrgent(delivery.dueDate) && (
-                              <span className="text-red-500 font-medium flex items-center gap-1">
-                                <Bell className="h-3 w-3" /> Urgent
-                              </span>
-                            )}
-                            {!isDeliveryUrgent(delivery.dueDate) && (
-                              <span>Due in {Math.round((new Date(delivery.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days</span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.customerName}</p>
-                          <p className="text-xs text-muted-foreground">{delivery.customerPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.items.join(', ')}</p>
-                          {renderStatusBadge(delivery.status)}
-                        </div>
-                        <div>
-                          <p className="text-sm">Agent:</p>
-                          <p className="text-xs text-muted-foreground">{delivery.deliveryAgent || 'Not assigned'}</p>
-                        </div>
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleShowDetails(delivery)}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Details</span>
-                          </Button>
-                          <Button 
-                            size="sm"
-                            onClick={() => handleUpdateStatus(delivery.id, 'delivered')}
-                          >
-                            <Package className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Mark Delivered</span>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-              
-              {/* Tab Content - Delivered */}
-              <TabsContent value="delivered" className="space-y-4">
-                {isLoading ? (
-                  // Loading skeleton
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="p-4 border rounded-md">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredDeliveries.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Package className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No delivered orders found</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    {filteredDeliveries.map((delivery) => (
-                      <div 
-                        key={delivery.id} 
-                        className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 border-b hover:bg-muted/40 transition-colors last:border-b-0"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">Order #{delivery.orderNumber}</p>
-                          <p className="text-xs text-muted-foreground">Completed order</p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.customerName}</p>
-                          <p className="text-xs text-muted-foreground">{delivery.customerPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.items.join(', ')}</p>
-                          {renderStatusBadge(delivery.status)}
-                        </div>
-                        <div>
-                          <p className="text-sm">Delivered:</p>
-                          <p className="text-xs text-muted-foreground">
-                            {delivery.deliveryDate ? format(new Date(delivery.deliveryDate), 'MMMM dd, yyyy') : 'Unknown'}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleShowDetails(delivery)}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Details</span>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-              
-              {/* Tab Content - All Orders */}
-              <TabsContent value="all" className="space-y-4">
-                {isLoading ? (
-                  // Loading skeleton
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="p-4 border rounded-md">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                          <Skeleton className="h-10 w-full" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredDeliveries.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Package className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No orders found</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    {filteredDeliveries.map((delivery) => (
-                      <div 
-                        key={delivery.id} 
-                        className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 border-b hover:bg-muted/40 transition-colors last:border-b-0"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">Order #{delivery.orderNumber}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {delivery.status === 'pending' && isDeliveryUrgent(delivery.dueDate) && (
-                              <span className="text-red-500 font-medium flex items-center gap-1">
-                                <Bell className="h-3 w-3" /> Urgent
-                              </span>
-                            )}
-                            {delivery.status === 'pending' && !isDeliveryUrgent(delivery.dueDate) && (
-                              <span>Due in {Math.round((new Date(delivery.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days</span>
-                            )}
-                            {delivery.status === 'delivered' && 'Completed order'}
-                            {delivery.status === 'in-transit' && 'In delivery'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.customerName}</p>
-                          <p className="text-xs text-muted-foreground">{delivery.customerPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm">{delivery.items.join(', ')}</p>
-                          {renderStatusBadge(delivery.status)}
-                        </div>
-                        <div>
-                          {delivery.status === 'delivered' ? (
-                            <>
-                              <p className="text-sm">Delivered:</p>
-                              <p className="text-xs text-muted-foreground">
-                                {delivery.deliveryDate ? format(new Date(delivery.deliveryDate), 'MMMM dd, yyyy') : 'Unknown'}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-sm">Due Date:</p>
-                              <p className="text-xs text-muted-foreground">{format(new Date(delivery.dueDate), 'MMMM dd, yyyy')}</p>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleShowDetails(delivery)}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Details</span>
-                          </Button>
-                          {delivery.status === 'pending' && (
-                            <Button 
-                              size="sm"
-                              onClick={() => handleUpdateStatus(delivery.id, 'in-transit')}
-                            >
-                              <Truck className="h-4 w-4 mr-1" />
-                              <span className="hidden sm:inline">Start Delivery</span>
-                            </Button>
-                          )}
-                          {delivery.status === 'in-transit' && (
-                            <Button 
-                              size="sm"
-                              onClick={() => handleUpdateStatus(delivery.id, 'delivered')}
-                            >
-                              <Package className="h-4 w-4 mr-1" />
-                              <span className="hidden sm:inline">Mark Delivered</span>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search orders..."
+              className="pl-8 w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          <Select
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+          >
+            <SelectTrigger className="w-full md:w-40">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="stitching">Stitching</SelectItem>
+              <SelectItem value="ready">Ready</SelectItem>
+              <SelectItem value="delivered">Delivered</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Calendar className="h-5 w-5 mr-2" />
-              Upcoming Deliveries
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {isLoading ? (
-                // Loading skeleton for upcoming deliveries
-                <>
-                  <Skeleton className="h-24 w-full" />
-                  <Skeleton className="h-24 w-full" />
-                </>
-              ) : (
-                // Filter and show only upcoming deliveries (pending and in-transit)
-                sampleDeliveries
-                  .filter(d => ['pending', 'in-transit'].includes(d.status))
-                  .slice(0, 4)
-                  .map(delivery => (
-                    <div 
-                      key={delivery.id} 
-                      className="border rounded-md p-4 hover:bg-muted/40 transition-colors cursor-pointer"
-                      onClick={() => handleShowDetails(delivery)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">Order #{delivery.orderNumber}</h3>
-                          <p className="text-sm text-muted-foreground">{delivery.customerName}</p>
-                        </div>
-                        {renderStatusBadge(delivery.status)}
-                      </div>
-                      <div className="mt-2 flex justify-between items-end">
-                        <p className="text-sm">{delivery.items.join(', ')}</p>
-                        <div className="flex items-center text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {format(new Date(delivery.dueDate), 'MMM dd')}
-                          <ArrowRight className="h-3 w-3 mx-1" />
-                        </div>
-                      </div>
+        <Tabs defaultValue="table" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="table">Table View</TabsTrigger>
+            <TabsTrigger value="dashboard">Dashboard View</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="table" className="space-y-4">
+            <Card>
+              <CardHeader className="py-4">
+                <CardTitle>Orders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  {isLoading ? (
+                    <div className="flex justify-center items-center h-24">
+                      <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                     </div>
-                  ))
-              )}
+                  ) : filteredOrders.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No orders found matching your filters
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Items</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredOrders.map((order) => {
+                          const customer = customers.get(order.customerId);
+                          return (
+                            <TableRow key={order.id}>
+                              <TableCell className="font-medium">
+                                {order.id.substring(0, 8)}...
+                              </TableCell>
+                              <TableCell>{customer ? customer.name : "Unknown"}</TableCell>
+                              <TableCell>{formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}</TableCell>
+                              <TableCell>{order.items.length}</TableCell>
+                              <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                  {format(new Date(order.dueDate), 'MMM dd, yyyy')}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  className={statusColors[order.status as keyof typeof statusColors]}
+                                  variant="outline"
+                                >
+                                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right space-x-2">
+                                {order.status !== 'ready' && order.status !== 'delivered' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => markAsReady(order.id)}
+                                  >
+                                    <Package className="h-4 w-4 mr-1" />
+                                    Mark Ready
+                                  </Button>
+                                )}
+                                {order.status === 'ready' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => markAsDelivered(order.id)}
+                                    className="text-green-600"
+                                  >
+                                    <Truck className="h-4 w-4 mr-1" />
+                                    Mark Delivered
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="dashboard" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Pending Orders */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    <div className="h-3 w-3 rounded-full bg-yellow-400 mr-2"></div>
+                    Pending Orders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    {isLoading ? (
+                      <div className="flex justify-center items-center h-24">
+                        <div className="h-5 w-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : ordersByStatus.pending.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No pending orders
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {ordersByStatus.pending.map(order => {
+                          const customer = customers.get(order.customerId);
+                          return (
+                            <div
+                              key={order.id}
+                              className="border rounded-md p-3 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium">{customer?.name || "Unknown"}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                  </p>
+                                </div>
+                                <div className="text-right text-sm">
+                                  <p>{format(new Date(order.dueDate), 'MMM dd')}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+              
+              {/* Stitching Orders */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    <div className="h-3 w-3 rounded-full bg-blue-400 mr-2"></div>
+                    Stitching Orders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    {isLoading ? (
+                      <div className="flex justify-center items-center h-24">
+                        <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : ordersByStatus.stitching.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No stitching orders
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {ordersByStatus.stitching.map(order => {
+                          const customer = customers.get(order.customerId);
+                          return (
+                            <div
+                              key={order.id}
+                              className="border rounded-md p-3 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium">{customer?.name || "Unknown"}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                  </p>
+                                </div>
+                                <div className="text-right text-sm">
+                                  <p>{format(new Date(order.dueDate), 'MMM dd')}</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => markAsReady(order.id)}
+                                    className="h-7 mt-1"
+                                  >
+                                    Mark Ready
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+              
+              {/* Ready Orders */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    <div className="h-3 w-3 rounded-full bg-green-400 mr-2"></div>
+                    Ready for Delivery
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    {isLoading ? (
+                      <div className="flex justify-center items-center h-24">
+                        <div className="h-5 w-5 border-2 border-green-400 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : ordersByStatus.ready.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No orders ready for delivery
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {ordersByStatus.ready.map(order => {
+                          const customer = customers.get(order.customerId);
+                          return (
+                            <div
+                              key={order.id}
+                              className="border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900/30 rounded-md p-3"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium">{customer?.name || "Unknown"}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                  </p>
+                                  {customer?.phone && (
+                                    <p className="text-sm mt-1">
+                                      {customer.phone}
+                                      {customer.isWhatsApp && (
+                                        <a
+                                          href={`https://wa.me/92${customer.phone.replace(/\D/g, '').replace(/^0+/, '')}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="ml-2 text-green-600"
+                                        >
+                                          <svg 
+                                            xmlns="http://www.w3.org/2000/svg" 
+                                            width="14"
+                                            height="14" 
+                                            viewBox="0 0 24 24" 
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            strokeWidth="2" 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round"
+                                            className="inline"
+                                          >
+                                            <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+                                          </svg>
+                                        </a>
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => markAsDelivered(order.id)}
+                                    className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Delivered
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+              
+              {/* Delivered Orders */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    <div className="h-3 w-3 rounded-full bg-purple-400 mr-2"></div>
+                    Delivered Today
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    {isLoading ? (
+                      <div className="flex justify-center items-center h-24">
+                        <div className="h-5 w-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : ordersByStatus.delivered.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No orders delivered today
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {ordersByStatus.delivered
+                          .filter(order => {
+                            // Only show deliveries from today
+                            const today = new Date().toDateString();
+                            const deliveredDate = order.deliveredAt 
+                              ? new Date(order.deliveredAt).toDateString()
+                              : new Date(order.updatedAt).toDateString();
+                            return deliveredDate === today;
+                          })
+                          .map(order => {
+                            const customer = customers.get(order.customerId);
+                            return (
+                              <div
+                                key={order.id}
+                                className="border border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-900/30 rounded-md p-3"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium">{customer?.name || "Unknown"}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {order.items.length} items • {formatCurrency(order.totalAmount)}
+                                    </p>
+                                  </div>
+                                  <div className="text-right text-sm">
+                                    <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
+                                      Delivered
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      {/* Delivery Details Sheet */}
-      {selectedDelivery && (
-        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <SheetContent className="sm:max-w-md">
-            <SheetHeader>
-              <SheetTitle>Order #{selectedDelivery.orderNumber}</SheetTitle>
-              <SheetDescription>
-                View and manage delivery details
-              </SheetDescription>
-            </SheetHeader>
-            <div className="py-6 space-y-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Status</h3>
-                <div className="flex items-center space-x-2">
-                  {renderStatusBadge(selectedDelivery.status)}
-                  {selectedDelivery.status === 'pending' && isDeliveryUrgent(selectedDelivery.dueDate) && (
-                    <span className="text-xs text-red-500 font-medium flex items-center">
-                      <Bell className="h-3 w-3 mr-1" /> Urgent
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Customer Information</h3>
-                <div className="text-sm">
-                  <p>{selectedDelivery.customerName}</p>
-                  <p className="text-muted-foreground">{selectedDelivery.customerPhone}</p>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Order Items</h3>
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {selectedDelivery.items.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Delivery Information</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Due Date</p>
-                    <p>{format(new Date(selectedDelivery.dueDate), 'MMMM dd, yyyy')}</p>
-                  </div>
-                  {selectedDelivery.deliveryDate && (
-                    <div>
-                      <p className="text-muted-foreground">Delivery Date</p>
-                      <p>{format(new Date(selectedDelivery.deliveryDate), 'MMMM dd, yyyy')}</p>
-                    </div>
-                  )}
-                  {selectedDelivery.deliveryAgent && (
-                    <div className="col-span-2">
-                      <p className="text-muted-foreground">Delivery Agent</p>
-                      <p>{selectedDelivery.deliveryAgent}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {selectedDelivery.notes && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Notes</h3>
-                  <p className="text-sm">{selectedDelivery.notes}</p>
-                </div>
-              )}
-              
-              <div className="flex flex-col gap-2 pt-4">
-                {selectedDelivery.status === 'pending' && (
-                  <Button onClick={() => handleUpdateStatus(selectedDelivery.id, 'in-transit')}>
-                    <Truck className="h-4 w-4 mr-2" />
-                    Start Delivery
-                  </Button>
-                )}
-                
-                {selectedDelivery.status === 'in-transit' && (
-                  <Button onClick={() => handleUpdateStatus(selectedDelivery.id, 'delivered')}>
-                    <Package className="h-4 w-4 mr-2" />
-                    Mark as Delivered
-                  </Button>
-                )}
-                
-                {(selectedDelivery.status === 'pending' || selectedDelivery.status === 'in-transit') && (
-                  <Button variant="outline" onClick={() => handleUpdateStatus(selectedDelivery.id, 'cancelled')}>
-                    Cancel Delivery
-                  </Button>
-                )}
-                
-                <SheetClose asChild>
-                  <Button variant="ghost">Close</Button>
-                </SheetClose>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
     </Layout>
   );
-};
-
-export default Delivery;
+}

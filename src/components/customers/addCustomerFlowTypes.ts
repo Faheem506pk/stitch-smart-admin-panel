@@ -16,15 +16,21 @@ export interface MeasurementFormData {
   notes?: string;
 }
 
+export interface OrderItemFormData {
+  id?: string;
+  type: string;
+  quantity: number;
+  price: number;
+  description: string;
+  fabricDetails?: string;
+  measurementId?: string;
+}
+
 export interface OrderFormData {
-  items: Array<{
-    type: string;
-    quantity: number;
-    price: number;
-    description: string;
-    fabricDetails?: string;
-    measurementId?: string;
-  }>;
+  items: OrderItemFormData[];
+  totalAmount: number;
+  advanceAmount: number;
+  balanceAmount: number;
   status: 'pending' | 'stitching' | 'ready' | 'delivered';
   dueDate: string;
   notes?: string;

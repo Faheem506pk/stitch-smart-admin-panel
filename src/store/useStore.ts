@@ -1,7 +1,9 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User } from '@/types/models';
+import { User, Employee } from '@/types/models';
+import { employeeService } from '@/services/employeeService';
+import { toast } from 'sonner';
 
 interface AuthState {
   user: User | null;
@@ -23,7 +25,21 @@ interface AppState {
 
 type StoreState = AuthState & AppState;
 
-// Mock user for demo purposes
+// Convert employee to user
+const employeeToUser = (employee: Employee): User => {
+  return {
+    id: employee.id,
+    email: employee.email,
+    name: employee.name,
+    role: employee.role,
+    permissions: employee.permissions,
+    profilePicture: employee.profilePicture,
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString(),
+  };
+};
+
+// Mock admin for demo purposes
 const mockAdmin: User = {
   id: 'admin-001',
   email: 'admin@example.com',
@@ -51,7 +67,7 @@ export const useStore = create<StoreState>()(
       error: null,
       
       // App state
-      isOnline: navigator.onLine,
+      isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
       isSyncing: false,
       lastSyncTime: null,
       
@@ -60,30 +76,53 @@ export const useStore = create<StoreState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // In a real app, this would be a Firebase auth call
-          // For demo, we'll just use a mock response after a delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Try to fetch employee from Firebase
+          const employee = await employeeService.getEmployeeByEmail(email);
           
-          // Mock validation
+          if (employee) {
+            // In a real app, this would be a Firebase auth call with proper password verification
+            // For demo, we'll simulate a password check
+            if (password === 'password' || email === 'admin@example.com') {
+              // Convert employee to user
+              const user = employeeToUser(employee);
+              
+              set({ 
+                user,
+                isAuthenticated: true,
+                isLoading: false 
+              });
+              
+              toast.success(`Welcome back, ${user.name}!`);
+              return;
+            }
+          }
+          
+          // Fallback to mock admin if email matches
           if (email === 'admin@example.com' && password === 'password') {
             set({ 
               user: mockAdmin,
               isAuthenticated: true,
               isLoading: false 
             });
-          } else {
-            set({
-              error: 'Invalid email or password',
-              isLoading: false,
-              isAuthenticated: false,
-            });
+            toast.success(`Welcome back, ${mockAdmin.name}!`);
+            return;
           }
+          
+          // If we get here, login failed
+          set({
+            error: 'Invalid email or password',
+            isLoading: false,
+            isAuthenticated: false,
+          });
+          toast.error('Invalid email or password');
         } catch (error) {
+          console.error('Login error:', error);
           set({ 
             error: typeof error === 'string' ? error : 'An error occurred during login',
             isLoading: false,
             isAuthenticated: false
           });
+          toast.error('An error occurred during login');
         }
       },
       
@@ -93,6 +132,7 @@ export const useStore = create<StoreState>()(
           isAuthenticated: false,
           error: null
         });
+        toast.info('You have been logged out');
       },
       
       // App actions

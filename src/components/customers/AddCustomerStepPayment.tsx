@@ -1,8 +1,9 @@
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Select,
   SelectContent,
@@ -10,155 +11,141 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OrderFormData, PaymentFormData } from './addCustomerFlowTypes';
-import { DollarSign } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { PaymentFormData } from './addCustomerFlowTypes';
+import { Currency } from 'lucide-react';
+import { toast } from "sonner";
+import { formatCurrency } from '@/utils/currencyUtils';
 
 interface AddCustomerStepPaymentProps {
   paymentData: PaymentFormData;
   setPaymentData: React.Dispatch<React.SetStateAction<PaymentFormData>>;
-  orderData: OrderFormData;
+  orderTotal: number;
   onComplete: () => void;
   onBack: () => void;
-  isSaving: boolean;
 }
 
 export function AddCustomerStepPayment({ 
   paymentData, 
-  setPaymentData,
-  orderData,
+  setPaymentData, 
+  orderTotal,
   onComplete, 
-  onBack,
-  isSaving
+  onBack
 }: AddCustomerStepPaymentProps) {
-  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
   
-  // Calculate total order amount based on items
-  useEffect(() => {
-    const total = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    setPaymentData(prev => ({ 
-      ...prev, 
-      totalAmount: total,
-      balanceAmount: total - prev.advanceAmount
+  // Update payment data when component mounts
+  useState(() => {
+    setPaymentData(prev => ({
+      ...prev,
+      totalAmount: orderTotal,
+      advanceAmount: 0,
+      balanceAmount: orderTotal
     }));
-  }, [orderData.items, setPaymentData]);
+  });
   
   const handleAdvanceChange = (value: number) => {
-    const advance = isNaN(value) ? 0 : value;
-    setPaymentData(prev => ({ 
-      ...prev, 
+    const advance = Number(value) || 0;
+    
+    setPaymentData(prev => ({
+      ...prev,
       advanceAmount: advance,
-      balanceAmount: prev.totalAmount - advance
+      balanceAmount: Math.max(0, prev.totalAmount - advance)
     }));
   };
-
-  const handleComplete = async () => {
+  
+  const handleComplete = () => {
     if (paymentData.advanceAmount > paymentData.totalAmount) {
-      toast({
-        title: "Error",
-        description: "Advance amount cannot be greater than total amount",
-        variant: "destructive"
-      });
+      toast.error("Advance cannot exceed total amount");
       return;
     }
     
-    // Call parent's onComplete function to save data to Firebase
-    onComplete();
+    setIsProcessing(true);
+    
+    try {
+      onComplete();
+    } catch (error) {
+      console.error("Error completing payment:", error);
+      toast.error("Failed to process payment");
+      setIsProcessing(false);
+    }
   };
-  
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2 mb-2">
-        <DollarSign className="h-5 w-5 text-primary" />
-        <p className="text-muted-foreground">
-          Record payment details for this order.
-        </p>
+      <div className="border rounded-md p-4 bg-muted/30">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Total Amount</Label>
+            <div className="text-lg font-semibold">{formatCurrency(paymentData.totalAmount)}</div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Advance Payment</Label>
+            <div className="text-lg font-semibold text-green-600">{formatCurrency(paymentData.advanceAmount)}</div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Balance Due</Label>
+            <div className="text-lg font-semibold text-amber-600">{formatCurrency(paymentData.balanceAmount)}</div>
+          </div>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="totalAmount">Total Amount</Label>
-          <Input
-            id="totalAmount"
-            type="number"
-            min="0"
-            step="0.01"
-            value={paymentData.totalAmount}
-            onChange={(e) => setPaymentData(prev => ({ 
-              ...prev, 
-              totalAmount: parseFloat(e.target.value) || 0,
-              balanceAmount: (parseFloat(e.target.value) || 0) - prev.advanceAmount
-            }))}
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="advanceAmount">Advance Amount</Label>
+      <div className="space-y-2">
+        <Label htmlFor="advanceAmount">Advance Amount</Label>
+        <div className="relative">
+          <Currency className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             id="advanceAmount"
             type="number"
             min="0"
-            max={paymentData.totalAmount}
             step="0.01"
-            value={paymentData.advanceAmount}
+            className="pl-10"
+            value={paymentData.advanceAmount || ''}
             onChange={(e) => handleAdvanceChange(parseFloat(e.target.value))}
+            placeholder="Enter advance amount"
           />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="balanceAmount">Balance Amount</Label>
-          <Input
-            id="balanceAmount"
-            type="number"
-            value={paymentData.balanceAmount}
-            readOnly
-            className="bg-muted"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="paymentMethod">Payment Method</Label>
-          <Select
-            value={paymentData.paymentMethod}
-            onValueChange={(value) => setPaymentData(prev => ({ 
-              ...prev, 
-              paymentMethod: value as 'cash' | 'other'
-            }))}
-          >
-            <SelectTrigger id="paymentMethod">
-              <SelectValue placeholder="Select payment method" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
       
-      <div className="rounded-md bg-primary/10 p-4 mt-4">
-        <h4 className="font-medium mb-2">Payment Summary</h4>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>Total Order Value:</div>
-          <div className="font-medium text-right">${paymentData.totalAmount.toFixed(2)}</div>
-          
-          <div>Advance Paid:</div>
-          <div className="font-medium text-right">${paymentData.advanceAmount.toFixed(2)}</div>
-          
-          <div className="border-t pt-1 mt-1">Remaining Balance:</div>
-          <div className="font-medium text-right border-t pt-1 mt-1">${paymentData.balanceAmount.toFixed(2)}</div>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="paymentMethod">Payment Method</Label>
+        <Select
+          value={paymentData.paymentMethod}
+          onValueChange={(value) => setPaymentData(prev => ({ ...prev, paymentMethod: value as 'cash' | 'other' }))}
+        >
+          <SelectTrigger id="paymentMethod">
+            <SelectValue placeholder="Select payment method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cash">Cash</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="paymentNotes">Notes (Optional)</Label>
+        <Textarea
+          id="paymentNotes"
+          value={paymentData.notes || ''}
+          onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+          placeholder="Add any notes about this payment"
+        />
       </div>
       
       <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onBack} disabled={isSaving}>
+        <Button variant="outline" onClick={onBack} disabled={isProcessing}>
           Back
         </Button>
         <Button 
           onClick={handleComplete}
-          disabled={isSaving}
+          disabled={isProcessing}
         >
-          {isSaving ? "Saving..." : "Complete"}
+          {isProcessing ? (
+            <>
+              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+              Processing...
+            </>
+          ) : "Complete & Save"}
         </Button>
       </div>
     </div>

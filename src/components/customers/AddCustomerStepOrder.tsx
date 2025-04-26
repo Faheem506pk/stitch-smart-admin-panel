@@ -21,11 +21,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { OrderFormData } from './addCustomerFlowTypes';
+import { OrderFormData, OrderItemFormData } from './addCustomerFlowTypes';
 import { format } from "date-fns";
 import { Plus, Trash2, FileText, CalendarIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
 
 interface AddCustomerStepOrderProps {
   orderData: OrderFormData;
@@ -46,7 +46,6 @@ export function AddCustomerStepOrder({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     orderData.dueDate ? new Date(orderData.dueDate) : undefined
   );
-  const { toast } = useToast();
   
   const addNewItem = () => {
     setOrderData(prev => ({
@@ -54,6 +53,7 @@ export function AddCustomerStepOrder({
       items: [
         ...prev.items, 
         { 
+          id: crypto.randomUUID(),
           type: 'shirt', 
           quantity: 1, 
           price: 0, 
@@ -64,19 +64,37 @@ export function AddCustomerStepOrder({
   };
   
   const removeItem = (index: number) => {
-    setOrderData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
+    setOrderData(prev => {
+      const newItems = prev.items.filter((_, i) => i !== index);
+      
+      // Recalculate total amount after removing an item
+      const newTotalAmount = newItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+      
+      return {
+        ...prev,
+        items: newItems,
+        totalAmount: newTotalAmount,
+        balanceAmount: Math.max(0, newTotalAmount - prev.advanceAmount)
+      };
+    });
   };
   
   const updateItem = (index: number, field: string, value: any) => {
-    setOrderData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => 
+    setOrderData(prev => {
+      const updatedItems = prev.items.map((item, i) => 
         i === index ? { ...item, [field]: value } : item
-      )
-    }));
+      );
+      
+      // Recalculate total amount when prices or quantities change
+      let newTotalAmount = updatedItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+      
+      return {
+        ...prev,
+        items: updatedItems,
+        totalAmount: newTotalAmount,
+        balanceAmount: Math.max(0, newTotalAmount - prev.advanceAmount)
+      };
+    });
   };
 
   const handleAddOrder = () => {
@@ -104,11 +122,7 @@ export function AddCustomerStepOrder({
   const handleNext = () => {
     // Validate order data
     if (orderData.items.length === 0 || !orderData.dueDate) {
-      toast({
-        title: "Error",
-        description: "Please add at least one item and select a due date",
-        variant: "destructive"
-      });
+      toast.error("Please add at least one item and select a due date");
       return;
     }
     
@@ -188,6 +202,13 @@ export function AddCustomerStepOrder({
                                   <SelectItem value="pant">Pant/Trouser</SelectItem>
                                   <SelectItem value="suit">Suit</SelectItem>
                                   <SelectItem value="dress">Dress</SelectItem>
+                                  <SelectItem value="kurta">Kurta</SelectItem>
+                                  <SelectItem value="shalwar">Shalwar</SelectItem>
+                                  <SelectItem value="kameez">Kameez</SelectItem>
+                                  <SelectItem value="waistcoat">Waistcoat</SelectItem>
+                                  <SelectItem value="jacket">Jacket</SelectItem>
+                                  <SelectItem value="blazer">Blazer</SelectItem>
+                                  <SelectItem value="coat">Coat</SelectItem>
                                   <SelectItem value="other">Other</SelectItem>
                                 </SelectContent>
                               </Select>

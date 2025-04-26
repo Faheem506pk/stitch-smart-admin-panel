@@ -20,6 +20,7 @@ const Measurements = () => {
   const [customerMeasurements, setCustomerMeasurements] = useState<Measurement[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [measurementsSubscription, setMeasurementsSubscription] = useState<(() => void) | null>(null);
 
   // Fetch customers on component mount
   useEffect(() => {
@@ -51,6 +52,7 @@ const Measurements = () => {
 
     return () => {
       if (unsubscribe) unsubscribe();
+      if (measurementsSubscription) measurementsSubscription();
     };
   }, []);
 
@@ -69,6 +71,12 @@ const Measurements = () => {
 
   // Fetch customer measurements when selected customer changes
   useEffect(() => {
+    // Clean up previous subscription if exists
+    if (measurementsSubscription) {
+      measurementsSubscription();
+      setMeasurementsSubscription(null);
+    }
+    
     if (!selectedCustomer) {
       setCustomerMeasurements([]);
       return;
@@ -84,19 +92,13 @@ const Measurements = () => {
       }
     };
 
-    // Set up subscription for real-time updates
-    const unsubscribe = customerService.subscribeToCustomerMeasurements(
-      selectedCustomer.id,
-      (data) => {
-        setCustomerMeasurements(data);
-      }
-    );
-
     fetchMeasurements();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    
+    // For real-time updates, we'll use a manual approach since we don't have the subscription function
+    // This would be the ideal approach if the function existed
+    const intervalId = setInterval(fetchMeasurements, 10000); // Poll every 10 seconds
+    
+    return () => clearInterval(intervalId);
   }, [selectedCustomer]);
 
   const handleCustomerSelect = (customer: Customer) => {
