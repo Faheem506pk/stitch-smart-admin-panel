@@ -194,6 +194,10 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
       return false;
     }
   };
+  const closeModal = () => {
+    onOpenChange(false);
+  };
+  
 
   const handleSaveOrder = async () => {
     if (!savedCustomerId) {
@@ -300,28 +304,10 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
             onSkip={() => goToNextStep()}
             customerId={savedCustomerId}
             isExisting={!!existingCustomer}
+            onClose={closeModal}
           />
         );
-      case 4:
-        return (
-          <AddCustomerStepOrder
-            orderData={orderData}
-            setOrderData={setOrderData}
-            onNext={handleSaveOrder}
-            onBack={goToPreviousStep}
-            onSkip={() => goToNextStep()}
-          />
-        );
-      case 5:
-        return (
-          <AddCustomerStepPayment
-            paymentData={paymentData}
-            setPaymentData={setPaymentData}
-            orderTotal={orderData.totalAmount}
-            onComplete={handleCompleteFlow}
-            onBack={goToPreviousStep}
-          />
-        );
+     
       default:
         return null;
     }
