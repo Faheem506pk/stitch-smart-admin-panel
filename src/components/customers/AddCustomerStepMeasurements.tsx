@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +25,7 @@ interface AddCustomerStepMeasurementsProps {
   onSkip: () => void;
   customerId?: string | null;
   isExisting: boolean;
+  onClose?: () => void; // Added new prop for closing the modal
 }
 
 // Default measurement fields for different garment types
@@ -78,7 +78,8 @@ export function AddCustomerStepMeasurements({
   onBack,
   onSkip,
   customerId,
-  isExisting
+  isExisting,
+  onClose
 }: AddCustomerStepMeasurementsProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [customMeasurementTypes, setCustomMeasurementTypes] = useState<CustomMeasurementType[]>([]);
@@ -136,8 +137,14 @@ export function AddCustomerStepMeasurements({
   };
 
   const handleSkip = () => {
-    // Skip measurements and go to the next step
-    onSkip();
+    // Check if onClose is available and call it to close the modal 
+    // instead of proceeding to the next step
+    if (onClose) {
+      onClose();
+    } else {
+      // If no onClose provided, fall back to original behavior
+      onSkip();
+    }
   };
 
   // Check if any measurements have been entered
