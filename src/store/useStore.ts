@@ -12,6 +12,7 @@ interface AuthState {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
   error: string | null;
 }
 
@@ -150,6 +151,15 @@ export const useStore = create<StoreState>()(
         } catch (error) {
           console.error('Logout error:', error);
           toast.error('An error occurred during logout');
+        }
+      },
+      
+      updateUser: (userData: Partial<User>) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({
+            user: { ...currentUser, ...userData }
+          });
         }
       },
       
