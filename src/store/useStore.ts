@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Employee } from '@/types/models';
 import { employeeService } from '@/services/employeeService';
+import { authService } from '@/services/firebase';
 import { toast } from 'sonner';
 
 interface AuthState {
@@ -76,29 +77,38 @@ export const useStore = create<StoreState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // Try to fetch employee from Firebase
+          // Sign in with Firebase Authentication
+          const { user: firebaseUser, error: firebaseError } = await authService.signIn(email, password);
+          
+          if (firebaseError || !firebaseUser) {
+            set({
+              error: firebaseError || 'Invalid email or password',
+              isLoading: false,
+              isAuthenticated: false,
+            });
+            toast.error(firebaseError || 'Invalid email or password');
+            return;
+          }
+          
+          // Get the employee data from Firestore
           const employee = await employeeService.getEmployeeByEmail(email);
           
           if (employee) {
-            // In a real app, this would be a Firebase auth call with proper password verification
-            // For demo, we'll simulate a password check
-            if (password === 'password' || email === 'admin@example.com') {
-              // Convert employee to user
-              const user = employeeToUser(employee);
-              
-              set({ 
-                user,
-                isAuthenticated: true,
-                isLoading: false 
-              });
-              
-              toast.success(`Welcome back, ${user.name}!`);
-              return;
-            }
+            // Convert employee to user
+            const user = employeeToUser(employee);
+            
+            set({ 
+              user,
+              isAuthenticated: true,
+              isLoading: false 
+            });
+            
+            toast.success(`Welcome back, ${user.name}!`);
+            return;
           }
           
-          // Fallback to mock admin if email matches
-          if (email === 'admin@example.com' && password === 'password') {
+          // Fallback to mock admin if email matches (for demo purposes)
+          if (email === 'admin@example.com') {
             set({ 
               user: mockAdmin,
               isAuthenticated: true,
@@ -108,13 +118,13 @@ export const useStore = create<StoreState>()(
             return;
           }
           
-          // If we get here, login failed
+          // If we get here, user authenticated but no employee record found
           set({
-            error: 'Invalid email or password',
+            error: 'User account exists but no employee record found',
             isLoading: false,
             isAuthenticated: false,
           });
-          toast.error('Invalid email or password');
+          toast.error('User account exists but no employee record found');
         } catch (error) {
           console.error('Login error:', error);
           set({ 
@@ -126,13 +136,21 @@ export const useStore = create<StoreState>()(
         }
       },
       
-      logout: () => {
-        set({ 
-          user: null,
-          isAuthenticated: false,
-          error: null
-        });
-        toast.info('You have been logged out');
+      logout: async () => {
+        try {
+          // Sign out from Firebase
+          await authService.signOut();
+          
+          set({ 
+            user: null,
+            isAuthenticated: false,
+            error: null
+          });
+          toast.info('You have been logged out');
+        } catch (error) {
+          console.error('Logout error:', error);
+          toast.error('An error occurred during logout');
+        }
       },
       
       // App actions
