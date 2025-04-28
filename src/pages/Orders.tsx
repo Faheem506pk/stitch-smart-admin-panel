@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Layout } from "@/components/layout/Layout";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   Table, 
@@ -48,6 +49,7 @@ interface Order {
 }
 
 const Orders = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddOrderDialogOpen, setIsAddOrderDialogOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -91,8 +93,10 @@ const Orders = () => {
     const searchString = searchTerm.toLowerCase();
     return (
       order.customer.name.toLowerCase().includes(searchString) ||
-      order.orderType.toLowerCase().includes(searchString) ||
-      order.id.toLowerCase().includes(searchString)
+      (order.orderType && order.orderType.toLowerCase().includes(searchString)) ||
+      (order.orderTypeDisplay && order.orderTypeDisplay.toLowerCase().includes(searchString)) ||
+      order.id.toString().toLowerCase().includes(searchString) ||
+      (order.customer.phone && order.customer.phone.toLowerCase().includes(searchString))
     );
   });
 
@@ -190,8 +194,12 @@ const Orders = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Edit Order</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}/edit`)}>
+                            Edit Order
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => handleDeleteOrder(order.id)}
