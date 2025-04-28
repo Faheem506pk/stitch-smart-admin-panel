@@ -169,61 +169,97 @@ export default function CustomerDetail() {
                 <CardDescription>Basic details about the customer</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Name</p>
-                    <p className="font-medium">{customer.name}</p>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{customer.phone}</p>
-                      {customer.isWhatsApp && (
-                        <a
-                          href={`https://wa.me/92${customer.phone.replace(/\D/g, '').replace(/^0+/, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-green-600 hover:text-green-700"
+                <div className="flex flex-col md:flex-row gap-6 mb-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center relative overflow-hidden">
+                      {customer.profilePicture ? (
+                        <img
+                          src={customer.profilePicture}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Handle image load error
+                            (e.target as HTMLImageElement).src = '';
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-12 w-12 text-muted-foreground"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
                         >
-                          <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            width="16" 
-                            height="16" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
+                          <path
+                            strokeLinecap="round"
                             strokeLinejoin="round"
-                            className="h-4 w-4"
-                          >
-                            <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
-                            <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
-                            <path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
-                            <path d="M9 14a5 5 0 0 0 6 0" />
-                          </svg>
-                        </a>
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
+                        </svg>
                       )}
                     </div>
                   </div>
                   
-                  {customer.email && (
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Email</p>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium">{customer.email}</p>
+                  <div className="flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-muted-foreground">Name</p>
+                        <p className="font-medium">{customer.name}</p>
                       </div>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Customer Since</p>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium">{formatDate(customer.createdAt)}</p>
+                      
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <p className="font-medium">{customer.phone}</p>
+                          {customer.isWhatsApp && (
+                            <a
+                              href={`https://wa.me/92${customer.phone.replace(/\D/g, '').replace(/^0+/, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                width="16" 
+                                height="16" 
+                                viewBox="0 0 24 24" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                strokeWidth="2" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                                className="h-4 w-4"
+                              >
+                                <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+                                <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
+                                <path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
+                                <path d="M9 14a5 5 0 0 0 6 0" />
+                              </svg>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {customer.email && (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground">Email</p>
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <p className="font-medium">{customer.email}</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-muted-foreground">Customer Since</p>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <p className="font-medium">{formatDate(customer.createdAt)}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
