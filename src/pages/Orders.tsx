@@ -178,7 +178,15 @@ const Orders = () => {
               <TableBody>
                 {filteredOrders.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.id}</TableCell>
+                    <TableCell className="font-medium">
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto font-medium"
+                        onClick={() => navigate(`/orders/${order.id}`)}
+                      >
+                        {order.id}
+                      </Button>
+                    </TableCell>
                     <TableCell>{order.customer.name}</TableCell>
                   <TableCell>{order.orderTypeDisplay || order.orderType}</TableCell>
                     <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
