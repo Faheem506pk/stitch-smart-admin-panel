@@ -2,7 +2,7 @@
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Eye } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
@@ -187,7 +187,8 @@ const Customers = () => {
                             size="sm" 
                             onClick={() => navigate(`/customers/${customer.id}`)}
                           >
-                            <Edit className="h-4 w-4" />
+                            
+                            <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="outline" size="sm" className="text-destructive" onClick={() => setCustomerToDelete(customer.id)}>
                             <Trash2 className="h-4 w-4" />

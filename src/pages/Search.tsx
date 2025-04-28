@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
+import { formatCurrency } from "@/utils/currencyUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search as SearchIcon, ArrowLeft } from "lucide-react";
@@ -262,7 +263,7 @@ const Search = () => {
                         <TableRow key={order.id}>
                           <TableCell>#{order.id}</TableCell>
                           <TableCell>{order.customer?.name || 'Unknown'}</TableCell>
-                          <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                           <TableCell>{formatDate(order.dueDate)}</TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${

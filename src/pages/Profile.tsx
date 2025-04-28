@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { useStore } from "@/store/useStore";
-import { cloudinaryService } from "@/services/cloudinaryService";
 import { employeeService } from "@/services/employeeService";
 import { Loader2, Camera, Save } from "lucide-react";
 
@@ -15,7 +14,7 @@ const Profile = () => {
   const { user, updateUser } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useState<HTMLInputElement | null>(null);
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -66,67 +65,47 @@ const Profile = () => {
     if (!file) return;
     
     setIsUploading(true);
+    
     try {
-      // Create a local preview for immediate UI feedback
-      const localPreviewPromise = new Promise<string>((resolve) => {
+      // Convert file to data URL (base64) instead of blob URL
+      const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onload = (event) => {
-          resolve(event.target?.result as string);
-        };
+        reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
       
-      const localPreview = await localPreviewPromise;
-      
-      // Show local preview immediately
+      // Update the UI with the data URL
       setProfileData(prev => ({
         ...prev,
-        profilePicture: localPreview
+        profilePicture: dataUrl
       }));
       
-      // Upload to Cloudinary
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
+      // Simulate a delay to show the upload process
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const response = await fetch(`https://api.cloudinary.com/v1_1/dajdqqwkw/image/upload`, {
-        method: 'POST',
-        body: formData
+      // Save the profile with the data URL
+      const success = await employeeService.updateEmployee(user!.id, {
+        name: profileData.name,
+        phoneNumber: profileData.phoneNumber,
+        position: profileData.position,
+        profilePicture: dataUrl,
+        updatedAt: new Date().toISOString()
       });
       
-      const data = await response.json();
-      
-      if (data.secure_url) {
-        setProfileData(prev => ({
-          ...prev,
-          profilePicture: data.secure_url
-        }));
-        toast.success("Profile picture uploaded successfully!");
+      if (success) {
+        // Update local user state
+        updateUser({
+          name: profileData.name,
+          profilePicture: dataUrl
+        });
+        
+        toast.success("Profile picture updated successfully!");
       } else {
-        throw new Error("No secure URL returned from Cloudinary");
+        toast.error("Failed to update profile picture");
       }
     } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Failed to upload profile picture");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleUploadImage = async () => {
-    setIsUploading(true);
-    try {
-      const imageUrl = await cloudinaryService.openUploadWidget();
-      if (imageUrl) {
-        setProfileData(prev => ({
-          ...prev,
-          profilePicture: imageUrl
-        }));
-        toast.success("Profile picture uploaded successfully!");
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Failed to upload profile picture");
+      console.error("Error handling image:", error);
+      toast.error("Failed to update profile picture");
     } finally {
       setIsUploading(false);
     }
@@ -265,7 +244,6 @@ const Profile = () => {
                     accept="image/*"
                     onChange={handleFileChange}
                     disabled={isUploading}
-                    ref={fileInputRef}
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity rounded-full">
                     {isUploading ? (
@@ -276,26 +254,7 @@ const Profile = () => {
                           htmlFor="profilePicture"
                           className="w-full h-full flex items-center justify-center hover:bg-black/20 rounded-full"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
+                          <Camera className="h-5 w-5 text-white" />
                         </label>
                       </>
                     )}

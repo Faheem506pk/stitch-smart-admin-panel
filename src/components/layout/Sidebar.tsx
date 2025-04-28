@@ -62,11 +62,17 @@ export function Sidebar({
     <aside
       className={cn(
         "fixed left-0 top-0 z-30 flex h-screen flex-col transition-all duration-300 ease-in-out",
-        collapsed ? "w-[70px]" : "w-[250px]",
+        isMobile 
+          ? isMobileSidebarOpen 
+            ? "w-[250px] translate-x-0" 
+            : "w-[250px] -translate-x-full"
+          : collapsed 
+            ? "w-[70px]" 
+            : "w-[250px]",
         className
       )}
     >
-      <div className="flex h-full flex-col overflow-hidden bg-sidebar border-r border-sidebar-border">
+      <div className="flex h-full flex-col overflow-hidden bg-sidebar border-r border-sidebar-border shadow-lg">
         <div className="flex h-14 items-center border-b border-sidebar-border px-4">
           {(!collapsed && !isMobile) || (isMobile && isMobileSidebarOpen) ? (
             <Link to="/" className="flex items-center gap-2">
@@ -131,12 +137,12 @@ export function Sidebar({
             {theme === "dark" ? (
               <>
                 <Sun size={20} />
-                {!collapsed && <span>Light Mode</span>}
+                {(!collapsed || isMobile) && <span>Light Mode</span>}
               </>
             ) : (
               <>
                 <Moon size={20} />
-                {!collapsed && <span>Dark Mode</span>}
+                {(!collapsed || isMobile) && <span>Dark Mode</span>}
               </>
             )}
           </Button>
@@ -152,7 +158,7 @@ export function Sidebar({
             }}
           >
             <LogOut size={20} />
-            {!collapsed && <span>Logout</span>}
+            {(!collapsed || isMobile) && <span>Logout</span>}
           </Button>
         </div>
       </div>
