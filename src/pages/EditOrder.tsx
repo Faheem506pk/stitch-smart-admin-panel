@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { firestoreService } from '@/services/firebase';
 import { getFirebaseInstances } from '@/services/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { formatCurrency } from '@/utils/currencyUtils';
 
 interface Customer {
   id: string;
@@ -196,8 +197,11 @@ export default function EditOrder() {
   };
   
   const updateOrderTypePrice = (id: string, price: number) => {
+    // Ensure price is non-negative and an integer
+    const validPrice = Math.max(0, Math.round(price));
+    
     setOrderTypes(orderTypes.map(type => 
-      type.id === id ? { ...type, price } : type
+      type.id === id ? { ...type, price: validPrice } : type
     ));
     
     // Recalculate total amount when price changes
@@ -438,17 +442,13 @@ export default function EditOrder() {
                           <Label htmlFor={`price-${type.id}`} className="text-xs">Price</Label>
                           <Input
                             id={`price-${type.id}`}
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            type="text"
                             value={type.price}
                             onChange={(e) => {
-                              // Allow empty string for backspace to work
                               const value = e.target.value;
-                              if (value === '') {
-                                updateOrderTypePrice(type.id, 0);
-                              } else {
-                                updateOrderTypePrice(type.id, parseFloat(value) || 0);
+                              // Only allow non-negative integers
+                              if (value === '' || /^\d+$/.test(value)) {
+                                updateOrderTypePrice(type.id, parseInt(value) || 0);
                               }
                             }}
                             className="h-8"
@@ -465,7 +465,7 @@ export default function EditOrder() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Total Amount</Label>
-                <div className="text-lg font-medium">${order.totalAmount.toFixed(2)}</div>
+                <div className="text-lg font-medium">{formatCurrency(order.totalAmount)}</div>
                 <p className="text-sm text-muted-foreground">
                   Calculated from selected items
                 </p>
@@ -473,7 +473,7 @@ export default function EditOrder() {
               
               <div className="space-y-2">
                 <Label>Advance Paid</Label>
-                <div className="text-lg font-medium">${order.advanceAmount.toFixed(2)}</div>
+                <div className="text-lg font-medium">{formatCurrency(order.advanceAmount)}</div>
                 <p className="text-sm text-muted-foreground">
                   Cannot be modified here
                 </p>
@@ -481,7 +481,7 @@ export default function EditOrder() {
               
               <div className="space-y-2">
                 <Label>Remaining</Label>
-                <div className="text-lg font-medium">${order.remainingAmount.toFixed(2)}</div>
+                <div className="text-lg font-medium">{formatCurrency(order.remainingAmount)}</div>
                 <p className="text-sm text-muted-foreground">
                   Use the Payments tab to record payments
                 </p>
