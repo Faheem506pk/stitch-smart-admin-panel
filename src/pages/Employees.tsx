@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AddEmployeeDialog } from "@/components/employees/AddEmployeeDialog";
+import { EditEmployeeDialog } from "@/components/employees/EditEmployeeDialog";
 import { employeeService } from "@/services/employeeService";
 import { Employee } from "@/types/models";
 import { 
@@ -19,9 +20,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 const Employees = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -116,11 +119,8 @@ const Employees = () => {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => {
-                            // Edit functionality would go here
-                            toast({
-                              title: "Coming Soon",
-                              description: "Edit feature will be available soon.",
-                            });
+                            setSelectedEmployee(employee);
+                            setIsEditDialogOpen(true);
                           }}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -141,6 +141,12 @@ const Employees = () => {
       <AddEmployeeDialog 
         open={isAddDialogOpen} 
         onOpenChange={setIsAddDialogOpen}
+      />
+      
+      <EditEmployeeDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        employee={selectedEmployee}
       />
 
       <AlertDialog open={!!employeeToDelete} onOpenChange={(open) => {
