@@ -184,7 +184,8 @@ const Orders = () => {
                         className="p-0 h-auto font-medium"
                         onClick={() => navigate(`/orders/${order.id}`)}
                       >
-                        {order.id}
+                        {/* Remove leading zeros and ensure proper display */}
+                        {parseInt(order.id).toString()}
                       </Button>
                     </TableCell>
                     <TableCell>{order.customer.name}</TableCell>
