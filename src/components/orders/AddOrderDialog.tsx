@@ -547,7 +547,11 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                   min="0"
                   step="0.01"
                   value={totalAmount}
-                  onChange={(e) => setTotalAmount(e.target.value)}
+                  onChange={(e) => {
+                    // Allow empty string for backspace to work
+                    const value = e.target.value;
+                    setTotalAmount(value);
+                  }}
                 />
               </div>
               <div className="grid gap-2">
@@ -558,7 +562,11 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                   min="0"
                   step="0.01"
                   value={advanceAmount}
-                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  onChange={(e) => {
+                    // Allow empty string for backspace to work
+                    const value = e.target.value;
+                    setAdvanceAmount(value);
+                  }}
                 />
               </div>
             </div>
