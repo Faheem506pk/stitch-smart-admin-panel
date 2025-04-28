@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { customerService } from "@/services/customerService";
 import { Customer } from "@/types/models";
-import { Loader2 } from "lucide-react";
+import { Loader2, User } from "lucide-react";
+import { cloudinaryService } from "@/services/cloudinaryService";
 
 interface EditCustomerDialogProps {
   open: boolean;
@@ -35,8 +36,11 @@ export function EditCustomerDialog({
     address: "",
     notes: "",
     isWhatsApp: false,
+    profilePicture: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (customer && open) {
@@ -47,7 +51,9 @@ export function EditCustomerDialog({
         address: customer.address || "",
         notes: customer.notes || "",
         isWhatsApp: customer.isWhatsApp || false,
+        profilePicture: customer.profilePicture || "",
       });
+      setProfileImage(customer.profilePicture || null);
     }
   }, [customer, open]);
 
@@ -59,6 +65,35 @@ export function EditCustomerDialog({
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsUploading(true);
+      try {
+        // Convert file to data URL (base64)
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        
+        // Update the UI with the data URL
+        setProfileImage(dataUrl);
+        setFormData(prev => ({
+          ...prev,
+          profilePicture: dataUrl
+        }));
+        
+        toast.success("Profile image updated successfully");
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast.error("Failed to upload image. Please try again.");
+      } finally {
+        setIsUploading(false);
+      }
+    }
   };
 
   const handleCheckboxChange = (checked: boolean) => {
@@ -111,18 +146,84 @@ export function EditCustomerDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="col-span-3"
-                required
-              />
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              <div className="flex-shrink-0">
+                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center relative overflow-hidden">
+                  {profileImage ? (
+                    <img
+                      src={profileImage}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={() => {
+                        setProfileImage(null);
+                        setFormData((prev) => ({
+                          ...prev,
+                          profilePicture: "",
+                        }));
+                      }}
+                    />
+                  ) : (
+                    <User className="h-12 w-12 text-muted-foreground" />
+                  )}
+                  <input
+                    type="file"
+                    id="profilePicture"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity">
+                    {isUploading ? (
+                      <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <label
+                          htmlFor="profilePicture"
+                          className="w-full h-full flex items-center justify-center hover:bg-black/20"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="phone" className="text-right">
@@ -198,7 +299,7 @@ export function EditCustomerDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || isUploading}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
