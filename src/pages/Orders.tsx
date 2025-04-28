@@ -35,7 +35,9 @@ interface Order {
     name: string;
     phone: string;
   };
-  orderType: string;
+  orderType?: string;
+  orderTypes?: string[];
+  orderTypeDisplay?: string;
   totalAmount: number;
   advanceAmount: number;
   remainingAmount: number;
@@ -174,7 +176,7 @@ const Orders = () => {
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.id}</TableCell>
                     <TableCell>{order.customer.name}</TableCell>
-                    <TableCell>{order.orderType}</TableCell>
+                  <TableCell>{order.orderTypeDisplay || order.orderType}</TableCell>
                     <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                     <TableCell>{formatCurrency(order.remainingAmount)}</TableCell>
                     <TableCell>{formatDate(order.dueDate)}</TableCell>
