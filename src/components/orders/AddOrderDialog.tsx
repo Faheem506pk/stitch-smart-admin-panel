@@ -414,7 +414,7 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                       type="button" 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => setIsNewCustomer(true)}
+                      onClick={() => window.location.href = '/customers'}
                       className="ml-2"
                     >
                       + New
