@@ -49,32 +49,32 @@ const App = () => {
                 </ProtectedRoute>
               } />
               <Route path="/employees" element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPermission={{ section: 'employees', action: 'view' }}>
                   <Employees />
                 </ProtectedRoute>
               } />
               <Route path="/customers" element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPermission={{ section: 'customers', action: 'view' }}>
                   <Customers />
                 </ProtectedRoute>
               } />
               <Route path="/measurements" element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPermission={{ section: 'measurements', action: 'view' }}>
                   <Measurements />
                 </ProtectedRoute>
               } />
               <Route path="/orders" element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPermission={{ section: 'orders', action: 'view' }}>
                   <Orders />
                 </ProtectedRoute>
               } />
               <Route path="/delivery" element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPermission={{ section: 'orders', action: 'view' }}>
                   <Delivery />
                 </ProtectedRoute>
               } />
               <Route path="/settings" element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPermission={{ section: 'settings', action: 'view' }}>
                   <Settings />
                 </ProtectedRoute>
               } />
