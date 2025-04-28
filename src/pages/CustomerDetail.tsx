@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { EditCustomerDialog } from '@/components/customers/EditCustomerDialog';
+import { MeasurementManager } from '@/components/measurements/MeasurementManager';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -18,13 +19,16 @@ export default function CustomerDetail() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [customerMeasurements, setCustomerMeasurements] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('details');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isLoadingMeasurements, setIsLoadingMeasurements] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchCustomer(id);
       fetchCustomerOrders(id);
+      fetchCustomerMeasurements(id);
     }
   }, [id]);
 
@@ -53,6 +57,19 @@ export default function CustomerDetail() {
     } catch (error) {
       console.error('Error fetching customer orders:', error);
       toast.error('Failed to load customer orders');
+    }
+  };
+
+  const fetchCustomerMeasurements = async (customerId: string) => {
+    setIsLoadingMeasurements(true);
+    try {
+      const measurements = await firestoreService.getDocumentsByField('measurements', 'customerId', customerId);
+      setCustomerMeasurements(measurements);
+    } catch (error) {
+      console.error('Error fetching customer measurements:', error);
+      toast.error('Failed to load customer measurements');
+    } finally {
+      setIsLoadingMeasurements(false);
     }
   };
 
@@ -296,14 +313,37 @@ export default function CustomerDetail() {
           <TabsContent value="measurements" className="space-y-4 mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Customer Measurements</CardTitle>
-                <CardDescription>Saved measurements for this customer</CardDescription>
+                <div className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Customer Measurements</CardTitle>
+                    <CardDescription>Saved measurements for this customer</CardDescription>
+                  </div>
+                  <Button onClick={() => navigate(`/measurements?customer=${id}`)}>
+                    Manage Measurements
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No measurements found for this customer</p>
-                  <Button className="mt-4">Add Measurements</Button>
-                </div>
+                {isLoadingMeasurements ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : customerMeasurements.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No measurements found for this customer</p>
+                    <Button 
+                      className="mt-4"
+                      onClick={() => navigate(`/measurements?customer=${id}`)}
+                    >
+                      Add Measurements
+                    </Button>
+                  </div>
+                ) : (
+                  <MeasurementManager 
+                    customerId={id!} 
+                    initialMeasurements={customerMeasurements}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
