@@ -5,6 +5,29 @@ import { toast } from "sonner";
 
 const COLLECTION_NAME = 'employees';
 
+// Get default permissions based on role
+const getDefaultPermissions = (role: 'admin' | 'employee') => {
+  if (role === 'admin') {
+    return {
+      customers: { view: true, add: true, edit: true, delete: true },
+      orders: { view: true, add: true, edit: true, delete: true },
+      measurements: { view: true, add: true, edit: true },
+      payments: { view: true, add: true },
+      employees: { view: true, add: true, edit: true, delete: true },
+      settings: { view: true, edit: true },
+    };
+  } else {
+    return {
+      customers: { view: true, add: true, edit: true, delete: false },
+      orders: { view: true, add: true, edit: true, delete: false },
+      measurements: { view: true, add: true, edit: true },
+      payments: { view: true, add: true },
+      employees: { view: false, add: false, edit: false, delete: false },
+      settings: { view: false, edit: false },
+    };
+  }
+};
+
 export const employeeService = {
   // Add a new employee with Firebase Authentication
   addEmployee: async (employee: Omit<Employee, 'id'>, password: string): Promise<Employee | null> => {
@@ -79,9 +102,69 @@ export const employeeService = {
     }
   },
   
+  // Check if email exists in Firebase Auth and create if not
+  ensureFirebaseAuthUser: async (email: string, defaultPassword: string = "admin123"): Promise<boolean> => {
+    try {
+      console.log(`Ensuring Firebase Auth user exists for email: ${email}`);
+      
+      // Try to find the user by email in Firestore
+      const employees = await firestoreService.getDocumentsByField(COLLECTION_NAME, 'email', email);
+      
+      if (employees.length === 0) {
+        console.log(`No employee found with email ${email} in Firestore`);
+        return false;
+      }
+      
+      console.log(`Found employee in Firestore: ${employees[0].id}`);
+      
+      // Try to create the user in Firebase Auth
+      // If the user already exists, this will fail with an "already in use" error
+      try {
+        console.log(`Attempting to create Firebase Auth user for ${email}`);
+        const { user, error } = await authService.createUser(email, defaultPassword);
+        
+        if (error) {
+          if (error.includes("already in use")) {
+            console.log(`User ${email} already exists in Firebase Auth`);
+            return true; // User already exists, which is what we want
+          } else {
+            console.error(`Error creating Firebase Auth user: ${error}`);
+            return false;
+          }
+        }
+        
+        // If user was created successfully, update the employee record
+        if (user) {
+          console.log(`Firebase Auth user created successfully with UID: ${user.uid}`);
+          await firestoreService.updateDocument(COLLECTION_NAME, employees[0].id, {
+            firebaseUid: user.uid,
+            passwordResetRequired: true
+          });
+          
+          toast.success("Firebase Authentication account created for employee");
+          return true;
+        }
+      } catch (error) {
+        console.log(`Error in createUser, but this might be expected if user already exists: ${error}`);
+        // Even if there was an error, if it's because the user already exists, that's fine
+        return true;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`Error checking/creating Firebase Auth user: ${error}`);
+      return false;
+    }
+  },
+  
   // Update an existing employee
   updateEmployee: async (id: string, data: Partial<Employee>): Promise<boolean> => {
     try {
+      // If email is being updated, ensure the user exists in Firebase Auth
+      if (data.email) {
+        await employeeService.ensureFirebaseAuthUser(data.email);
+      }
+      
       const success = await firestoreService.updateDocument(COLLECTION_NAME, id, data);
       if (success) {
         toast.success("Employee updated successfully!");
@@ -178,29 +261,30 @@ export const employeeService = {
         return false;
       }
       
-      // Send password reset email to the admin's email
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser || !currentUser.email) {
-        toast.error("Admin email not available");
-        return false;
-      }
+      console.log(`Attempting to reset password for employee: ${employee.email}`);
       
-      // In a real app, you would use Firebase Admin SDK to generate a password reset link
-      // and send it to the admin's email. For this demo, we'll simulate it.
-      const result = await authService.sendPasswordResetEmail(currentUser.email);
+      // Since we can't directly set a password for an existing user without the Firebase Admin SDK,
+      // we'll send a password reset email to the employee
+      console.log(`Sending password reset email to ${employee.email}...`);
+      const result = await authService.sendPasswordResetEmail(employee.email);
+      
       if (!result.success) {
         toast.error(`Failed to send password reset email: ${result.error}`);
         return false;
       }
       
+      // Reset permissions based on role
+      const defaultPermissions = getDefaultPermissions(employee.role);
+      
       // Update the employee document
       const success = await firestoreService.updateDocument(COLLECTION_NAME, id, {
         passwordResetRequired: true,
-        passwordResetRequestedAt: new Date().toISOString()
+        passwordResetRequestedAt: new Date().toISOString(),
+        permissions: defaultPermissions
       });
       
       if (success) {
-        toast.success(`Password reset link sent to your email (${currentUser.email})`);
+        toast.success(`Password reset link sent to ${employee.email} and permissions reset`);
       }
       return success;
     } catch (error) {
