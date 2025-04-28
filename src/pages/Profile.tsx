@@ -67,43 +67,45 @@ const Profile = () => {
     setIsUploading(true);
     
     try {
-      // Show local preview immediately
-      const localPreview = URL.createObjectURL(file);
-      setProfileData(prev => ({
-        ...prev,
-        profilePicture: localPreview
-      }));
-      
-      // Create a FormData instance
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-      formData.append('cloud_name', 'dajdqqwkw');
-      
-      // Upload to Cloudinary
-      const response = await fetch('https://api.cloudinary.com/v1_1/dajdqqwkw/image/upload', {
-        method: 'POST',
-        body: formData
+      // Convert file to data URL (base64) instead of blob URL
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
       });
       
-      if (!response.ok) {
-        throw new Error(`Upload failed with status: ${response.status}`);
-      }
+      // Update the UI with the data URL
+      setProfileData(prev => ({
+        ...prev,
+        profilePicture: dataUrl
+      }));
       
-      const data = await response.json();
+      // Simulate a delay to show the upload process
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (data.secure_url) {
-        setProfileData(prev => ({
-          ...prev,
-          profilePicture: data.secure_url
-        }));
-        toast.success("Profile picture uploaded successfully!");
+      // Save the profile with the data URL
+      const success = await employeeService.updateEmployee(user!.id, {
+        name: profileData.name,
+        phoneNumber: profileData.phoneNumber,
+        position: profileData.position,
+        profilePicture: dataUrl,
+        updatedAt: new Date().toISOString()
+      });
+      
+      if (success) {
+        // Update local user state
+        updateUser({
+          name: profileData.name,
+          profilePicture: dataUrl
+        });
+        
+        toast.success("Profile picture updated successfully!");
       } else {
-        throw new Error("No secure URL returned from Cloudinary");
+        toast.error("Failed to update profile picture");
       }
     } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Failed to upload profile picture");
+      console.error("Error handling image:", error);
+      toast.error("Failed to update profile picture");
     } finally {
       setIsUploading(false);
     }
