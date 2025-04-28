@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const Profile = () => {
   const { user, updateUser } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -22,6 +23,10 @@ const Profile = () => {
     position: '',
     profilePicture: user?.profilePicture || ''
   });
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Fetch additional employee data
   useEffect(() => {
@@ -54,6 +59,58 @@ const Profile = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    try {
+      // Create a local preview for immediate UI feedback
+      const localPreviewPromise = new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          resolve(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      const localPreview = await localPreviewPromise;
+      
+      // Show local preview immediately
+      setProfileData(prev => ({
+        ...prev,
+        profilePicture: localPreview
+      }));
+      
+      // Upload to Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/dajdqqwkw/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (data.secure_url) {
+        setProfileData(prev => ({
+          ...prev,
+          profilePicture: data.secure_url
+        }));
+        toast.success("Profile picture uploaded successfully!");
+      } else {
+        throw new Error("No secure URL returned from Cloudinary");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Failed to upload profile picture");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleUploadImage = async () => {
@@ -107,6 +164,52 @@ const Profile = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!user) return;
+    
+    // Validate passwords
+    if (!currentPassword) {
+      toast.error("Please enter your current password");
+      return;
+    }
+    
+    if (!newPassword) {
+      toast.error("Please enter a new password");
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    try {
+      // In a real app, you would verify the current password with Firebase Auth
+      // For this demo, we'll just update the password
+      const success = await employeeService.changePassword(user.id, newPassword);
+      
+      if (success) {
+        toast.success("Password changed successfully!");
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error("Failed to change password");
+      }
+    } catch (error) {
+      console.error("Error changing password:", error);
+      toast.error("An error occurred while changing your password");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   // Generate initials for avatar fallback
   const getInitials = (name: string) => {
     return name
@@ -147,29 +250,60 @@ const Profile = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col items-center space-y-4 mb-6">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={profileData.profilePicture} />
-                  <AvatarFallback className="text-lg">
-                    {getInitials(profileData.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <Button 
-                  variant="outline" 
-                  onClick={handleUploadImage}
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="mr-2 h-4 w-4" />
-                      Change Picture
-                    </>
-                  )}
-                </Button>
+                <div className="relative h-24 w-24">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={profileData.profilePicture} />
+                    <AvatarFallback className="text-lg">
+                      {getInitials(profileData.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <input
+                    type="file"
+                    id="profilePicture"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                    ref={fileInputRef}
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity rounded-full">
+                    {isUploading ? (
+                      <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <label
+                          htmlFor="profilePicture"
+                          className="w-full h-full flex items-center justify-center hover:bg-black/20 rounded-full"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Click on the image to upload a new profile picture
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -261,6 +395,8 @@ const Profile = () => {
                   id="currentPassword"
                   type="password"
                   placeholder="Enter your current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                 />
               </div>
 
@@ -270,6 +406,8 @@ const Profile = () => {
                   id="newPassword"
                   type="password"
                   placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                 />
               </div>
 
@@ -279,12 +417,26 @@ const Profile = () => {
                   id="confirmPassword"
                   type="password"
                   placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
 
               <div className="pt-4">
-                <Button variant="outline" className="w-full">
-                  Change Password
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword}
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Changing Password...
+                    </>
+                  ) : (
+                    "Change Password"
+                  )}
                 </Button>
               </div>
 
