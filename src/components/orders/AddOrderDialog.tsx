@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,15 +18,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { CalendarIcon, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { firestoreService } from '@/services/firebase';
 import { getFirebaseInstances } from '@/services/firebase'; 
 import { collection, getDocs } from 'firebase/firestore';
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Customer {
   id: string;
   name: string;
   phone: string;
+}
+
+interface OrderType {
+  id: string;
+  name: string;
+  selected: boolean;
 }
 
 interface AddOrderDialogProps {
@@ -39,21 +50,36 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState("");
-  const [orderType, setOrderType] = useState("");
+  const [orderTypes, setOrderTypes] = useState<OrderType[]>([
+    { id: "shirt", name: "Shirt", selected: false },
+    { id: "pant", name: "Pant", selected: false },
+    { id: "suit", name: "Suit", selected: false },
+    { id: "dress", name: "Dress", selected: false },
+    { id: "other", name: "Other", selected: false },
+  ]);
+  const [orderId, setOrderId] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [advanceAmount, setAdvanceAmount] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   const [notes, setNotes] = useState("");
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
 
-  // Fetch all customers when dialog opens
+  // Generate a unique 6-digit order ID when the dialog opens
   useEffect(() => {
     if (open) {
+      generateOrderId();
       fetchCustomers();
     }
   }, [open]);
+  
+  // Generate a unique 6-digit order ID
+  const generateOrderId = () => {
+    // Generate a random 6-digit number
+    const randomId = Math.floor(100000 + Math.random() * 900000);
+    setOrderId(randomId.toString());
+  };
 
   const fetchCustomers = async () => {
     try {
@@ -77,11 +103,32 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
     }
   };
 
+  const toggleOrderType = (id: string) => {
+    setOrderTypes(orderTypes.map(type => 
+      type.id === id ? { ...type, selected: !type.selected } : type
+    ));
+  };
+
+  const getSelectedOrderTypes = () => {
+    return orderTypes.filter(type => type.selected).map(type => type.name).join(", ");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      // Check if any order type is selected
+      const selectedTypes = orderTypes.filter(type => type.selected);
+      if (selectedTypes.length === 0) {
+        toast("Please select at least one order type", {
+          position: "top-center",
+          className: "bg-red-500",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Check if adding new customer first
       let finalCustomerId = customerId;
       let customerData = null;
@@ -124,7 +171,7 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
       }
 
       // Validate required fields
-      if (!orderType || !totalAmount || !dueDate) {
+      if (!totalAmount || !dueDate) {
         toast("Please fill in all required fields", {
           position: "top-center",
           className: "bg-red-500",
@@ -138,17 +185,19 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
       const advanceAmountNum = parseFloat(advanceAmount) || 0;
 
       const orderData = {
+        id: orderId,
         customerId: finalCustomerId,
         customer: {
           id: finalCustomerId,
           name: customerData?.name || "",
           phone: customerData?.phone || "",
         },
-        orderType,
+        orderTypes: selectedTypes.map(type => type.id),
+        orderTypeDisplay: getSelectedOrderTypes(),
         totalAmount: totalAmountNum,
         advanceAmount: advanceAmountNum,
         remainingAmount: totalAmountNum - advanceAmountNum,
-        dueDate,
+        dueDate: dueDate ? dueDate.toISOString() : new Date().toISOString(),
         notes,
         status: "pending",
         createdAt: new Date().toISOString(),
@@ -156,15 +205,13 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
       };
 
       // Save to Firestore
-      const result = await firestoreService.addDocument("orders", orderData);
+      const result = await firestoreService.addDocumentWithId("orders", orderId, orderData);
       
       if (!result) {
         throw new Error("Failed to save order data");
       }
       
-      toast("Order created successfully!", {
-        position: "top-center",
-      });
+      toast.success(`Order #${orderId} created successfully!`);
       
       // Reset form and close dialog
       resetForm();
@@ -172,10 +219,7 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
       
     } catch (error) {
       console.error("Error creating order:", error);
-      toast("Failed to create order", {
-        position: "top-center",
-        className: "bg-red-500",
-      });
+      toast.error("Failed to create order");
     } finally {
       setIsSubmitting(false);
     }
@@ -183,14 +227,15 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
   
   const resetForm = () => {
     setCustomerId("");
-    setOrderType("");
+    setOrderTypes(orderTypes.map(type => ({ ...type, selected: false })));
     setTotalAmount("");
     setAdvanceAmount("");
-    setDueDate("");
+    setDueDate(new Date());
     setNotes("");
     setIsNewCustomer(false);
     setNewCustomerName("");
     setNewCustomerPhone("");
+    generateOrderId();
   };
 
   const toggleNewCustomer = (value: string) => {
@@ -204,11 +249,14 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) resetForm();
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="sm:max-w-[600px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>New Order</DialogTitle>
+            <DialogTitle>New Order #{orderId}</DialogTitle>
             <DialogDescription>
               Create a new order for a customer. Fill in all required information.
             </DialogDescription>
@@ -266,21 +314,37 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                 </div>
               </div>
             )}
+            
             <div className="grid gap-2">
-              <Label htmlFor="type">Order Type</Label>
-              <Select value={orderType} onValueChange={setOrderType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select order type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="shirt">Shirt</SelectItem>
-                  <SelectItem value="pant">Pant</SelectItem>
-                  <SelectItem value="suit">Suit</SelectItem>
-                  <SelectItem value="dress">Dress</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Order Types (select all that apply)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {orderTypes.map((type) => (
+                  <div key={type.id} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`type-${type.id}`} 
+                      checked={type.selected}
+                      onCheckedChange={() => toggleOrderType(type.id)}
+                    />
+                    <Label htmlFor={`type-${type.id}`} className="cursor-pointer">
+                      {type.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {orderTypes.some(type => type.selected) && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {orderTypes
+                    .filter(type => type.selected)
+                    .map(type => (
+                      <Badge key={type.id} variant="outline" className="bg-primary/10">
+                        {type.name}
+                      </Badge>
+                    ))
+                  }
+                </div>
+              )}
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="totalAmount">Total Amount</Label>
@@ -306,16 +370,30 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                 />
               </div>
             </div>
+            
             <div className="grid gap-2">
               <Label htmlFor="dueDate">Due Date</Label>
-              <Input 
-                type="date" 
-                id="dueDate" 
-                required 
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={setDueDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
+            
             <div className="grid gap-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea 
