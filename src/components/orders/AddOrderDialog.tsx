@@ -518,7 +518,15 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                             min="0"
                             step="0.01"
                             value={type.price}
-                            onChange={(e) => updateOrderTypePrice(type.id, parseFloat(e.target.value) || 0)}
+                            onChange={(e) => {
+                              // Allow empty string for backspace to work
+                              const value = e.target.value;
+                              if (value === '') {
+                                updateOrderTypePrice(type.id, 0);
+                              } else {
+                                updateOrderTypePrice(type.id, parseFloat(value) || 0);
+                              }
+                            }}
                             className="h-8"
                           />
                         </div>
@@ -573,6 +581,7 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                     selected={dueDate}
                     onSelect={setDueDate}
                     initialFocus
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                   />
                 </PopoverContent>
               </Popover>
