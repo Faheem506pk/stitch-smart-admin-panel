@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -30,10 +30,22 @@ export function EmployeeCredentials({
   employee,
   mode
 }: EmployeeCredentialsProps) {
-  const [email, setEmail] = useState(employee?.email || '');
+  const [email, setEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Update email state when employee changes or dialog opens
+  useEffect(() => {
+    if (employee && isOpen) {
+      setEmail(employee.email || '');
+      // Reset other fields when dialog opens
+      setCurrentPassword('');
+      setPassword('');
+      setConfirmPassword('');
+    }
+  }, [employee, isOpen]);
 
   const handleSubmit = async () => {
     // Validate inputs
@@ -61,13 +73,25 @@ export function EmployeeCredentials({
         // Update existing employee credentials
         const updates: Partial<Employee> = { email };
         
-        if (email !== employee.email) {
-          // Update email in Firebase Auth
+        // Check if email is being changed
+        const isEmailChanged = email !== employee.email;
+        
+        // For email or password changes, we need the current password
+        if ((isEmailChanged || password) && !currentPassword) {
+          toast.error('Current password is required for security verification');
+          setIsLoading(false);
+          return;
+        }
+        
+        // First ensure the Firebase Auth user exists for this email
+        if (isEmailChanged) {
+          // Check if the new email already exists in Firebase Auth
+          await employeeService.ensureFirebaseAuthUser(email);
+          
+          // Update email in Firebase Auth if the user is currently logged in
           const currentUser = authService.getCurrentUser();
-          if (currentUser) {
-            // In a real app, we would need to re-authenticate the user first
-            // For this demo, we'll just update the email
-            const result = await authService.updateUserEmail(email, 'current-password');
+          if (currentUser && currentUser.email === employee.email) {
+            const result = await authService.updateUserEmail(email, currentPassword);
             if (!result.success) {
               toast.error(`Failed to update email: ${result.error}`);
               setIsLoading(false);
@@ -79,9 +103,11 @@ export function EmployeeCredentials({
         if (password) {
           // Update password in Firebase Auth
           const currentUser = authService.getCurrentUser();
-          if (currentUser) {
-            // In a real app, we would need to re-authenticate the user first
-            // For this demo, we'll just update the password
+          if (currentUser && currentUser.email === employee.email) {
+            // Use the current password for authentication
+            await employeeService.changePassword(employee.id, password, currentPassword);
+          } else {
+            // Admin is updating someone else's password
             await employeeService.changePassword(employee.id, password);
           }
         }
@@ -134,6 +160,23 @@ export function EmployeeCredentials({
               />
             </div>
           </div>
+
+          {mode === 'update' && (
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <div className="relative">
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  className="pl-10"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">
