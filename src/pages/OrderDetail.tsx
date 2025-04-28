@@ -20,6 +20,13 @@ interface OrderType {
   total: number;
 }
 
+interface Payment {
+  id: string;
+  amount: number;
+  date: string;
+  type: string;
+}
+
 interface Order {
   id: string;
   customerId: string;
@@ -38,6 +45,7 @@ interface Order {
   status: string;
   createdAt: string;
   updatedAt: string;
+  payments?: Payment[];
 }
 
 export default function OrderDetail() {
@@ -46,6 +54,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -102,6 +111,97 @@ export default function OrderDetail() {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleRecordPayment = async () => {
+    if (!order) return;
+    
+    const amount = window.prompt("Enter payment amount:");
+    if (!amount || isNaN(parseFloat(amount))) return;
+    
+    const paymentAmount = parseFloat(amount);
+    
+    if (paymentAmount <= 0) {
+      toast.error("Payment amount must be greater than zero");
+      return;
+    }
+    
+    if (paymentAmount > order.remainingAmount) {
+      toast.error(`Payment amount cannot exceed remaining amount (${order.remainingAmount.toFixed(2)})`);
+      return;
+    }
+    
+    setIsUpdating(true);
+    
+    try {
+      // Create a new payment record
+      const newPayment = {
+        id: Date.now().toString(),
+        amount: paymentAmount,
+        date: new Date().toISOString(),
+        type: 'cash'
+      };
+      
+      // Update order with new payment
+      const updatedOrder = {
+        ...order,
+        advanceAmount: order.advanceAmount + paymentAmount,
+        remainingAmount: order.remainingAmount - paymentAmount,
+        updatedAt: new Date().toISOString(),
+        payments: [...(order.payments || []), newPayment]
+      };
+      
+      // Update in Firestore
+      const success = await firestoreService.updateDocument('orders', order.id, updatedOrder);
+      
+      if (success) {
+        toast.success(`Payment of $${paymentAmount.toFixed(2)} recorded successfully`);
+        setOrder(updatedOrder);
+        
+        // If fully paid, ask if they want to mark as completed
+        if (updatedOrder.remainingAmount === 0) {
+          const markCompleted = window.confirm("Order is now fully paid. Mark as completed?");
+          if (markCompleted) {
+            await updateOrderStatus('completed');
+          }
+        }
+      } else {
+        toast.error("Failed to record payment");
+      }
+    } catch (error) {
+      console.error("Error recording payment:", error);
+      toast.error("An error occurred while recording payment");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const updateOrderStatus = async (status: string) => {
+    if (!order) return;
+    
+    setIsUpdating(true);
+    
+    try {
+      const updatedOrder = {
+        ...order,
+        status,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const success = await firestoreService.updateDocument('orders', order.id, updatedOrder);
+      
+      if (success) {
+        toast.success(`Order marked as ${status}`);
+        setOrder(updatedOrder);
+      } else {
+        toast.error(`Failed to update order status`);
+      }
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      toast.error("An error occurred while updating order status");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -162,16 +262,37 @@ export default function OrderDetail() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Order #{order.id}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Order #{parseInt(order.id).toString()}</h1>
               <p className="text-muted-foreground">Created on {formatDate(order.createdAt)}</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate(`/orders/${order.id}/edit`)}
+            >
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
-            <Button variant="outline" size="sm" className="text-destructive">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-destructive"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete this order?")) {
+                  firestoreService.deleteDocument('orders', order.id)
+                    .then(() => {
+                      toast.success("Order deleted successfully");
+                      navigate('/orders');
+                    })
+                    .catch(error => {
+                      console.error("Error deleting order:", error);
+                      toast.error("Failed to delete order");
+                    });
+                }
+              }}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
@@ -231,10 +352,22 @@ export default function OrderDetail() {
                 </span>
               </div>
               <div className="mt-2">
-                <Button variant="outline" size="sm" className="mr-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mr-2"
+                  disabled={order.status === 'completed' || isUpdating}
+                  onClick={() => updateOrderStatus('completed')}
+                >
                   Mark as Completed
                 </Button>
-                <Button variant="outline" size="sm" className="text-destructive">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-destructive"
+                  disabled={order.status === 'cancelled' || isUpdating}
+                  onClick={() => updateOrderStatus('cancelled')}
+                >
                   Cancel
                 </Button>
               </div>
@@ -342,7 +475,39 @@ export default function OrderDetail() {
                   </div>
                 </div>
                 
-                <Button className="w-full sm:w-auto">Record Payment</Button>
+                {order.payments && order.payments.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium mb-2">Payment History</h3>
+                    <div className="rounded-md border">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="p-2 text-left font-medium">Date</th>
+                            <th className="p-2 text-left font-medium">Type</th>
+                            <th className="p-2 text-right font-medium">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.payments.map((payment) => (
+                            <tr key={payment.id} className="border-b">
+                              <td className="p-2">{formatDate(payment.date)}</td>
+                              <td className="p-2 capitalize">{payment.type}</td>
+                              <td className="p-2 text-right">${payment.amount.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+                <Button 
+                  className="w-full sm:w-auto"
+                  onClick={handleRecordPayment}
+                  disabled={order.remainingAmount <= 0 || isUpdating}
+                >
+                  {isUpdating ? 'Processing...' : 'Record Payment'}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -365,16 +530,31 @@ export default function OrderDetail() {
                     </div>
                   </div>
                   
-                  <div className="flex gap-4">
-                    <div className="mt-1">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
+                  {order.advanceAmount > 0 && (
+                    <div className="flex gap-4">
+                      <div className="mt-1">
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Initial Payment Received</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p>
+                        <p className="text-sm">${order.advanceAmount.toFixed(2)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">Advance Payment Received</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p>
-                      <p className="text-sm">${order.advanceAmount.toFixed(2)}</p>
+                  )}
+                  
+                  {order.payments && order.payments.slice(0).reverse().map((payment, index) => (
+                    <div className="flex gap-4" key={payment.id}>
+                      <div className="mt-1">
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Payment Received</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(payment.date)}</p>
+                        <p className="text-sm">${payment.amount.toFixed(2)}</p>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                   
                   {order.status === 'completed' && (
                     <div className="flex gap-4">
@@ -383,6 +563,18 @@ export default function OrderDetail() {
                       </div>
                       <div>
                         <p className="font-medium">Order Completed</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(order.updatedAt)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {order.status === 'cancelled' && (
+                    <div className="flex gap-4">
+                      <div className="mt-1">
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Order Cancelled</p>
                         <p className="text-sm text-muted-foreground">{formatDate(order.updatedAt)}</p>
                       </div>
                     </div>
