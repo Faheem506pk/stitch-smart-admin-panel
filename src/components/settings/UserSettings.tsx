@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePermissions } from '@/hooks/use-permissions';
 import {
   Card,
   CardContent,
@@ -48,6 +49,7 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const { canDelete, canEdit, canAdd } = usePermissions();
   const [newEmployee, setNewEmployee] = useState({
     name: '',
     email: '',
@@ -211,10 +213,12 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
               Manage user accounts and permissions
             </CardDescription>
           </div>
-          <Button onClick={() => setIsAddEmployeeDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Employee
-          </Button>
+          {canAdd('employees') && (
+            <Button onClick={() => setIsAddEmployeeDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Employee
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -267,44 +271,52 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
                         </Select>
                       </TableCell>
                       <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedEmployee(employee);
-                            setIsPermissionDialogOpen(true);
-                          }}
-                          className="h-8"
-                        >
-                          <Shield className="h-3 w-3 mr-1" />
-                          Permissions
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resetEmployeePassword(employee)}
-                          className="h-8"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Reset
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onEditCredentials(employee)}
-                          className="h-8"
-                        >
-                          <PenLine className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteEmployee(employee.id)}
-                          className="h-8 text-destructive hover:text-destructive"
-                        >
-                          <Trash className="h-3 w-3" />
-                        </Button>
+                        {canEdit('employees') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEmployee(employee);
+                              setIsPermissionDialogOpen(true);
+                            }}
+                            className="h-8"
+                          >
+                            <Shield className="h-3 w-3 mr-1" />
+                            Permissions
+                          </Button>
+                        )}
+                        {canEdit('employees') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resetEmployeePassword(employee)}
+                            className="h-8"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Reset
+                          </Button>
+                        )}
+                        {canEdit('employees') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEditCredentials(employee)}
+                            className="h-8"
+                          >
+                            <PenLine className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {canDelete('employees') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteEmployee(employee.id)}
+                            className="h-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash className="h-3 w-3" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
