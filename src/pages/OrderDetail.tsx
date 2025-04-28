@@ -11,6 +11,7 @@ import { firestoreService } from '@/services/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { formatCurrency } from '@/utils/currencyUtils';
 
 interface OrderType {
   id: string;
@@ -128,7 +129,7 @@ export default function OrderDetail() {
     }
     
     if (paymentAmount > order.remainingAmount) {
-      toast.error(`Payment amount cannot exceed remaining amount (${order.remainingAmount.toFixed(2)})`);
+      toast.error(`Payment amount cannot exceed remaining amount (${formatCurrency(order.remainingAmount)})`);
       return;
     }
     
@@ -156,7 +157,7 @@ export default function OrderDetail() {
       const success = await firestoreService.updateDocument('orders', order.id, updatedOrder);
       
       if (success) {
-        toast.success(`Payment of $${paymentAmount.toFixed(2)} recorded successfully`);
+        toast.success(`Payment of ${formatCurrency(paymentAmount)} recorded successfully`);
         setOrder(updatedOrder);
         
         // If fully paid, ask if they want to mark as completed
@@ -404,15 +405,15 @@ export default function OrderDetail() {
                         <tr key={item.id} className="border-b">
                           <td className="p-2 font-medium">{item.name}</td>
                           <td className="p-2 text-center">{item.quantity}</td>
-                          <td className="p-2 text-right">${item.price.toFixed(2)}</td>
-                          <td className="p-2 text-right">${item.total.toFixed(2)}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.total)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-muted/50">
                         <td colSpan={3} className="p-2 font-medium text-right">Total</td>
-                        <td className="p-2 font-medium text-right">${order.totalAmount.toFixed(2)}</td>
+                        <td className="p-2 font-medium text-right">{formatCurrency(order.totalAmount)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -461,17 +462,17 @@ export default function OrderDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Total Amount</p>
-                    <p className="text-lg font-medium">${order.totalAmount.toFixed(2)}</p>
+                    <p className="text-lg font-medium">{formatCurrency(order.totalAmount)}</p>
                   </div>
                   
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Advance Paid</p>
-                    <p className="text-lg font-medium">${order.advanceAmount.toFixed(2)}</p>
+                    <p className="text-lg font-medium">{formatCurrency(order.advanceAmount)}</p>
                   </div>
                   
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Remaining</p>
-                    <p className="text-lg font-medium">${order.remainingAmount.toFixed(2)}</p>
+                    <p className="text-lg font-medium">{formatCurrency(order.remainingAmount)}</p>
                   </div>
                 </div>
                 
@@ -492,7 +493,7 @@ export default function OrderDetail() {
                             <tr key={payment.id} className="border-b">
                               <td className="p-2">{formatDate(payment.date)}</td>
                               <td className="p-2 capitalize">{payment.type}</td>
-                              <td className="p-2 text-right">${payment.amount.toFixed(2)}</td>
+                              <td className="p-2 text-right">{formatCurrency(payment.amount)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -538,7 +539,7 @@ export default function OrderDetail() {
                       <div>
                         <p className="font-medium">Initial Payment Received</p>
                         <p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p>
-                        <p className="text-sm">${order.advanceAmount.toFixed(2)}</p>
+                        <p className="text-sm">{formatCurrency(order.advanceAmount)}</p>
                       </div>
                     </div>
                   )}
@@ -551,7 +552,7 @@ export default function OrderDetail() {
                       <div>
                         <p className="font-medium">Payment Received</p>
                         <p className="text-sm text-muted-foreground">{formatDate(payment.date)}</p>
-                        <p className="text-sm">${payment.amount.toFixed(2)}</p>
+                        <p className="text-sm">{formatCurrency(payment.amount)}</p>
                       </div>
                     </div>
                   ))}
