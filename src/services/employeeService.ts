@@ -176,22 +176,26 @@ export const employeeService = {
         
         if (currentUser && currentUser.email === employee.email) {
           // User is updating their own email
-          if (!currentPassword) {
-            toast.error("Current password is required to update email");
-            return false;
-          }
-          
-          // Update email in Firebase Auth
-          const result = await authService.updateUserEmail(data.email, currentPassword);
-          if (!result.success) {
-            toast.error(`Failed to update email: ${result.error}`);
-            return false;
+          if (currentPassword) {
+            // Update email in Firebase Auth
+            const result = await authService.updateUserEmail(data.email, currentPassword);
+            if (!result.success) {
+              toast.error(`Failed to update email: ${result.error}`);
+              return false;
+            }
+          } else {
+            // If no current password provided, create a new account
+            const { user, error } = await authService.createUser(data.email, "admin123");
+            
+            if (error && !error.includes("already in use")) {
+              toast.error(`Failed to update email: ${error}`);
+              return false;
+            }
+            
+            toast.success(`Email updated to ${data.email}. Password reset to "admin123"`);
           }
         } else {
           // Admin is updating someone else's email
-          // In a real app with Firebase Admin SDK, you would update the email directly
-          // For this demo, we'll create a new user with the new email and default password
-          
           // Create a new user with the new email
           const { user, error } = await authService.createUser(data.email, "admin123");
           
@@ -200,9 +204,6 @@ export const employeeService = {
             return false;
           }
           
-          // If successful, we would delete the old user account
-          // But we can't do that from client-side Firebase
-          console.log(`Created new Firebase Auth user for ${data.email}`);
           toast.success(`Email updated to ${data.email}. Password reset to "admin123"`);
         }
       }
@@ -214,9 +215,7 @@ export const employeeService = {
       });
       
       if (success) {
-        if (!data.email) {
-          toast.success("Employee updated successfully!");
-        }
+        toast.success("Employee updated successfully!");
       }
       return success;
     } catch (error) {
