@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { Bell, Search, Menu, User, LogOut } from "lucide-react";
+import { Bell, Search, Menu, User, LogOut, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/components/ThemeProvider";
 import { useStore } from "@/store/useStore";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,9 @@ export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Theme Toggle Button - Only visible on mobile */}
+          <ThemeToggle className="md:hidden" />
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
@@ -166,5 +170,26 @@ export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
         </div>
       </div>
     </header>
+  );
+}
+
+// Theme toggle component
+function ThemeToggle({ className }: { className?: string }) {
+  const { theme, setTheme } = useTheme();
+  
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className={className}
+      aria-label="Toggle theme"
+    >
+      {theme === "dark" ? (
+        <Sun className="h-5 w-5" />
+      ) : (
+        <Moon className="h-5 w-5" />
+      )}
+    </Button>
   );
 }
