@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { customerService } from "@/services/customerService";
 import { Customer } from "@/types/models";
@@ -20,6 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { format } from "date-fns";
 
 const Customers = () => {
+  const navigate = useNavigate();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,12 +182,11 @@ const Customers = () => {
                       <TableCell>{formatDate(customer.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => {
-                            toast({
-                              title: "Coming Soon",
-                              description: "Edit feature will be available soon.",
-                            });
-                          }}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => navigate(`/customers/${customer.id}`)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="outline" size="sm" className="text-destructive" onClick={() => setCustomerToDelete(customer.id)}>
