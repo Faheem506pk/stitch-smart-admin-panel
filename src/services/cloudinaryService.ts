@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 interface CloudinaryConfig {
@@ -79,19 +78,127 @@ class CloudinaryService {
     const localPreview = await localPreviewPromise;
     
     try {
-      // Prepare form data for upload
+      // Use the upload widget instead of direct API call
+      const isInitialized = await this.ensureInitialized();
+      
+      if (!isInitialized) {
+        toast.error("Cloudinary upload widget failed to initialize");
+        return localPreview; // Return local preview as fallback
+      }
+      
+      return new Promise<string>((resolve) => {
+        const options = {
+          cloudName: this.config.cloudName,
+          uploadPreset: this.config.uploadPreset || 'ml_default',
+          apiKey: this.config.apiKey,
+          sources: ['local'],
+          multiple: false,
+          folder: 'profile_pictures',
+          tags: ['profile', 'user'],
+          resourceType: 'image',
+          clientAllowedFormats: ['jpg', 'jpeg', 'png', 'gif'],
+          maxFileSize: 5000000, // 5MB
+          showUploadMoreButton: false,
+          singleUploadAutoClose: true,
+          styles: {
+            palette: {
+              window: "#FFFFFF",
+              windowBorder: "#90A0B3",
+              tabIcon: "#0078FF",
+              menuIcons: "#5A616A",
+              textDark: "#000000",
+              textLight: "#FFFFFF",
+              link: "#0078FF",
+              action: "#FF620C",
+              inactiveTabIcon: "#0E2F5A",
+              error: "#F44235",
+              inProgress: "#0078FF",
+              complete: "#20B832",
+              sourceBg: "#E4EBF1"
+            }
+          }
+        };
+        
+        // Create a temporary file input element
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.style.display = 'none';
+        document.body.appendChild(fileInput);
+        
+        // Create a DataTransfer object and add the file
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        
+        // Create and open the upload widget
+        this.uploadWidget = window.cloudinary.createUploadWidget(
+          options,
+          (error: any, result: any) => {
+            if (!error && result && result.event === "success") {
+              const imageUrl = result.info.secure_url;
+              toast.success("Image uploaded successfully!");
+              resolve(imageUrl);
+            } else if (result && result.event === "close") {
+              // If widget is closed without uploading, return local preview
+              resolve(localPreview);
+            } else if (error) {
+              console.error("Cloudinary widget error:", error);
+              toast.error("Error uploading image");
+              resolve(localPreview);
+            }
+            
+            // Clean up
+            document.body.removeChild(fileInput);
+          }
+        );
+        
+        // Simulate a file selection
+        this.uploadWidget.open();
+        
+        // If widget fails to open, use direct upload as fallback
+        setTimeout(() => {
+          if (!this.uploadWidget.isShowing()) {
+            this.directUpload(file).then(resolve);
+          }
+        }, 1000);
+      });
+    } catch (error) {
+      console.error("Error uploading to Cloudinary:", error);
+      toast.error("Failed to upload image to Cloudinary");
+      // Return local preview so UI isn't blocked
+      return localPreview;
+    }
+  }
+  
+  // Fallback direct upload method
+  private async directUpload(file: File): Promise<string> {
+    try {
+      // Create a local preview for immediate UI feedback
+      const localPreviewPromise = new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          resolve(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      const localPreview = await localPreviewPromise;
+      
+      // Create a new FormData instance
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', this.config.uploadPreset || 'ml_default');
-      formData.append('api_key', this.config.apiKey);
+      formData.append('cloud_name', this.config.cloudName);
       
-      toast.loading("Uploading image to Cloudinary...");
-      
-      // Upload directly to Cloudinary using the Upload API
+      // Upload to Cloudinary
       const response = await fetch(`https://api.cloudinary.com/v1_1/${this.config.cloudName}/image/upload`, {
         method: 'POST',
         body: formData
       });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed with status: ${response.status}`);
+      }
       
       const data = await response.json();
       
@@ -99,13 +206,15 @@ class CloudinaryService {
         toast.success("Image uploaded successfully!");
         return data.secure_url;
       } else {
-        throw new Error("No secure URL returned from Cloudinary");
+        console.error("No secure URL in response:", data);
+        return localPreview;
       }
     } catch (error) {
-      console.error("Error uploading to Cloudinary:", error);
-      toast.error("Failed to upload image to Cloudinary");
-      // Return local preview so UI isn't blocked
-      return localPreview;
+      console.error("Direct upload error:", error);
+      toast.error("Failed to upload image directly");
+      
+      // Return a placeholder image URL
+      return "https://res.cloudinary.com/dajdqqwkw/image/upload/v1619799955/placeholder_user_image.png";
     }
   }
 
