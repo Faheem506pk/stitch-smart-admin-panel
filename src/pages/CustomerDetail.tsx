@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { EditCustomerDialog } from '@/components/customers/EditCustomerDialog';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ export default function CustomerDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('details');
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -121,7 +123,11 @@ export default function CustomerDetail() {
             <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsEditDialogOpen(true)}
+            >
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -303,6 +309,12 @@ export default function CustomerDetail() {
           </TabsContent>
         </Tabs>
       </div>
+      {/* Edit Customer Dialog */}
+      <EditCustomerDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        customer={customer}
+      />
     </Layout>
   );
 }
