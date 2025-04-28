@@ -40,10 +40,10 @@ export default function Settings() {
         
         <Tabs defaultValue="general" onValueChange={setActiveTab}>
           <TabsList className="mb-4 flex flex-wrap">
-            <TabsTrigger value="profile">
+            {/* <TabsTrigger value="profile">
               <UserCircle className="h-4 w-4 mr-2" />
               My Profile
-            </TabsTrigger>
+            </TabsTrigger> */}
             <TabsTrigger value="general">
               <SettingsIcon className="h-4 w-4 mr-2" />
               General
@@ -70,9 +70,9 @@ export default function Settings() {
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="profile" className="space-y-4">
+          {/* <TabsContent value="profile" className="space-y-4">
             <UserProfile />
-          </TabsContent>
+          </TabsContent> */}
           
           <TabsContent value="general" className="space-y-4">
             <GeneralSettings />
