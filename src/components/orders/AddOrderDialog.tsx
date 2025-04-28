@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { formatCurrency, parseCurrency, validateCurrencyInput } from "@/utils/currencyUtils";
 import {
   Dialog,
   DialogContent,
@@ -66,8 +67,8 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
   ]);
   const [measurementTypes, setMeasurementTypes] = useState<MeasurementType[]>([]);
   const [orderId, setOrderId] = useState("");
-  const [totalAmount, setTotalAmount] = useState("");
-  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [totalAmount, setTotalAmount] = useState("0");
+  const [advanceAmount, setAdvanceAmount] = useState("0");
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   const [notes, setNotes] = useState("");
   const [isNewCustomer, setIsNewCustomer] = useState(false);
@@ -205,8 +206,11 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
   };
   
   const updateOrderTypePrice = (id: string, price: number) => {
+    // Ensure price is non-negative and an integer
+    const validPrice = Math.max(0, Math.round(price));
+    
     setOrderTypes(orderTypes.map(type => 
-      type.id === id ? { ...type, price } : type
+      type.id === id ? { ...type, price: validPrice } : type
     ));
     
     // Recalculate total amount when price changes
@@ -218,7 +222,9 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
       .filter(type => type.selected)
       .reduce((sum, type) => sum + (type.quantity * type.price), 0);
     
-    setTotalAmount(total.toString());
+    // Ensure total is non-negative and an integer
+    const validTotal = Math.max(0, Math.round(total));
+    setTotalAmount(validTotal.toString());
   };
 
   const getSelectedOrderTypes = () => {
@@ -293,8 +299,8 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
       }
 
       // Prepare order data
-      const totalAmountNum = parseFloat(totalAmount);
-      const advanceAmountNum = parseFloat(advanceAmount) || 0;
+      const totalAmountNum = parseInt(totalAmount) || 0;
+      const advanceAmountNum = parseInt(advanceAmount) || 0;
 
       const orderData = {
         id: orderId,
@@ -514,17 +520,13 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                           <Label htmlFor={`price-${type.id}`} className="text-xs">Price</Label>
                           <Input
                             id={`price-${type.id}`}
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            type="text"
                             value={type.price}
                             onChange={(e) => {
-                              // Allow empty string for backspace to work
                               const value = e.target.value;
-                              if (value === '') {
-                                updateOrderTypePrice(type.id, 0);
-                              } else {
-                                updateOrderTypePrice(type.id, parseFloat(value) || 0);
+                              // Only allow non-negative integers
+                              if (value === '' || validateCurrencyInput(value)) {
+                                updateOrderTypePrice(type.id, parseInt(value) || 0);
                               }
                             }}
                             className="h-8"
@@ -541,31 +543,31 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
               <div className="grid gap-2">
                 <Label htmlFor="totalAmount">Total Amount</Label>
                 <Input
-                  type="number"
+                  type="text"
                   id="totalAmount"
                   required
-                  min="0"
-                  step="0.01"
                   value={totalAmount}
                   onChange={(e) => {
-                    // Allow empty string for backspace to work
                     const value = e.target.value;
-                    setTotalAmount(value);
+                    // Only allow non-negative integers
+                    if (value === '' || validateCurrencyInput(value)) {
+                      setTotalAmount(value === '' ? '0' : value);
+                    }
                   }}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="advanceAmount">Advance Amount</Label>
                 <Input
-                  type="number"
+                  type="text"
                   id="advanceAmount"
-                  min="0"
-                  step="0.01"
                   value={advanceAmount}
                   onChange={(e) => {
-                    // Allow empty string for backspace to work
                     const value = e.target.value;
-                    setAdvanceAmount(value);
+                    // Only allow non-negative integers
+                    if (value === '' || validateCurrencyInput(value)) {
+                      setAdvanceAmount(value === '' ? '0' : value);
+                    }
                   }}
                 />
               </div>
