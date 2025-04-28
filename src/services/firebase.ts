@@ -91,6 +91,24 @@ export { db, auth };
 
 // Firebase Authentication Service
 export const authService = {
+  // Mock function to simulate setting a default password (requires Firebase Admin SDK in real implementation)
+  mockSetDefaultPassword: async (email: string, defaultPassword: string = "admin123"): Promise<{success: boolean, error: string | null}> => {
+    if (!auth) {
+      return { success: false, error: "Firebase Auth not initialized" };
+    }
+    
+    try {
+      // In a real implementation with Firebase Admin SDK, we would set the password directly
+      // For this demo, we'll send a password reset email and pretend we set the password
+      await sendPasswordResetEmail(auth, email);
+      
+      console.log(`[MOCK] Password for ${email} has been set to "${defaultPassword}"`);
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error in mock set default password:", error);
+      return { success: false, error: error.message || "Failed to set default password" };
+    }
+  },
   // Get current user
   getCurrentUser: () => {
     if (!auth) return null;
