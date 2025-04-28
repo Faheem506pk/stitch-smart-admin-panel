@@ -17,6 +17,7 @@ import Orders from "./pages/Orders";
 import Delivery from "./pages/Delivery";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import Search from "./pages/Search";
 import { checkAndSeedData } from "./lib/dataSeeder";
 import { useStore } from "@/store/useStore";
 import { initializeFirebaseApp } from "./lib/firebaseUtils";
