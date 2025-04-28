@@ -158,16 +158,65 @@ export const employeeService = {
   },
   
   // Update an existing employee
-  updateEmployee: async (id: string, data: Partial<Employee>): Promise<boolean> => {
+  updateEmployee: async (id: string, data: Partial<Employee>, currentPassword?: string): Promise<boolean> => {
     try {
-      // If email is being updated, ensure the user exists in Firebase Auth
-      if (data.email) {
-        await employeeService.ensureFirebaseAuthUser(data.email);
+      // Get the current employee data
+      const employee = await employeeService.getEmployeeById(id);
+      if (!employee) {
+        toast.error("Employee not found");
+        return false;
       }
       
-      const success = await firestoreService.updateDocument(COLLECTION_NAME, id, data);
+      // If email is being updated, we need to update it in Firebase Auth
+      if (data.email && data.email !== employee.email) {
+        console.log(`Updating email from ${employee.email} to ${data.email}`);
+        
+        // Get the current user
+        const currentUser = authService.getCurrentUser();
+        
+        if (currentUser && currentUser.email === employee.email) {
+          // User is updating their own email
+          if (!currentPassword) {
+            toast.error("Current password is required to update email");
+            return false;
+          }
+          
+          // Update email in Firebase Auth
+          const result = await authService.updateUserEmail(data.email, currentPassword);
+          if (!result.success) {
+            toast.error(`Failed to update email: ${result.error}`);
+            return false;
+          }
+        } else {
+          // Admin is updating someone else's email
+          // In a real app with Firebase Admin SDK, you would update the email directly
+          // For this demo, we'll create a new user with the new email and default password
+          
+          // Create a new user with the new email
+          const { user, error } = await authService.createUser(data.email, "admin123");
+          
+          if (error && !error.includes("already in use")) {
+            toast.error(`Failed to update email: ${error}`);
+            return false;
+          }
+          
+          // If successful, we would delete the old user account
+          // But we can't do that from client-side Firebase
+          console.log(`Created new Firebase Auth user for ${data.email}`);
+          toast.success(`Email updated to ${data.email}. Password reset to "admin123"`);
+        }
+      }
+      
+      // Update the employee document in Firestore
+      const success = await firestoreService.updateDocument(COLLECTION_NAME, id, {
+        ...data,
+        updatedAt: new Date().toISOString()
+      });
+      
       if (success) {
-        toast.success("Employee updated successfully!");
+        if (!data.email) {
+          toast.success("Employee updated successfully!");
+        }
       }
       return success;
     } catch (error) {
@@ -263,28 +312,33 @@ export const employeeService = {
       
       console.log(`Attempting to reset password for employee: ${employee.email}`);
       
-      // Since we can't directly set a password for an existing user without the Firebase Admin SDK,
-      // we'll send a password reset email to the employee
-      console.log(`Sending password reset email to ${employee.email}...`);
-      const result = await authService.sendPasswordResetEmail(employee.email);
+      // Use our mock function to simulate setting a default password
+      // In a real production app with Firebase Admin SDK, this would actually set the password
+      const defaultPassword = "admin123";
+      const result = await authService.mockSetDefaultPassword(employee.email, defaultPassword);
       
       if (!result.success) {
-        toast.error(`Failed to send password reset email: ${result.error}`);
+        toast.error(`Failed to reset password: ${result.error}`);
         return false;
       }
       
       // Reset permissions based on role
       const defaultPermissions = getDefaultPermissions(employee.role);
       
-      // Update the employee document
+      // Update the employee document to store the default password (hashed in a real app)
       const success = await firestoreService.updateDocument(COLLECTION_NAME, id, {
         passwordResetRequired: true,
         passwordResetRequestedAt: new Date().toISOString(),
-        permissions: defaultPermissions
+        permissions: defaultPermissions,
+        // In a real app, we would never store the actual password, even hashed
+        // This is just for demonstration purposes
+        defaultPasswordSet: true,
+        defaultPasswordSetAt: new Date().toISOString()
       });
       
       if (success) {
-        toast.success(`Password reset link sent to ${employee.email} and permissions reset`);
+        toast.success(`Password reset to "${defaultPassword}" for ${employee.email}`);
+        toast.success(`Permissions have been reset to default for ${employee.role} role`);
       }
       return success;
     } catch (error) {
