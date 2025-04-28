@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { employeeService } from '@/services/employeeService';
+import { authService } from '@/services/firebase';
 import { toast } from 'sonner';
 import { User, Key, X } from 'lucide-react';
 import { Employee } from '@/types/models';
@@ -60,17 +61,32 @@ export function EmployeeCredentials({
         // Update existing employee credentials
         const updates: Partial<Employee> = { email };
         
-        if (password) {
-          // In a real application, you would use Firebase Auth to update the password
-          // For this demo, we'll just simulate updating a hashed password
-          updates.passwordLastChanged = new Date().toISOString();
-          updates.passwordResetRequired = false;
-          
-          // This is where you would store a hashed password in a real app
-          // For demo, we'll just store a dummy value
-          updates.password = 'hashed-password';
+        if (email !== employee.email) {
+          // Update email in Firebase Auth
+          const currentUser = authService.getCurrentUser();
+          if (currentUser) {
+            // In a real app, we would need to re-authenticate the user first
+            // For this demo, we'll just update the email
+            const result = await authService.updateUserEmail(email, 'current-password');
+            if (!result.success) {
+              toast.error(`Failed to update email: ${result.error}`);
+              setIsLoading(false);
+              return;
+            }
+          }
         }
         
+        if (password) {
+          // Update password in Firebase Auth
+          const currentUser = authService.getCurrentUser();
+          if (currentUser) {
+            // In a real app, we would need to re-authenticate the user first
+            // For this demo, we'll just update the password
+            await employeeService.changePassword(employee.id, password);
+          }
+        }
+        
+        // Update employee record in Firestore
         const success = await employeeService.updateEmployee(employee.id, updates);
         if (success) {
           toast.success('Employee credentials updated successfully');
