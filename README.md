@@ -4,7 +4,7 @@
 
 ## Overview
 
-StitchSmart is a comprehensive tailor shop management system designed to streamline operations for tailoring businesses. The application helps manage customers, orders, measurements, employees, and payments in one integrated platform.
+StitchSmart is a comprehensive tailor shop management system designed to streamline operations for tailoring businesses in Pakistan. The application helps manage customers, orders, measurements, employees, and payments in one integrated platform.
 
 ## Features
 
@@ -30,6 +30,12 @@ StitchSmart is a comprehensive tailor shop management system designed to streaml
 - **Custom Measurement Templates**: Create and use measurement templates
 - **Customer Measurements**: Store and retrieve customer measurements
 - **Measurement History**: Track changes to customer measurements over time
+
+### Financial Management
+- **Pakistani Rupee (Rs) Currency**: All financial transactions in PKR
+- **Integer-only Amounts**: No decimal or negative values for simpler accounting
+- **Payment Recording**: Track partial and full payments
+- **Payment History**: View complete payment history for each order
 
 ### Reporting and Analytics
 - **Dashboard**: Overview of business performance
