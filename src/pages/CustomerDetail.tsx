@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { EditCustomerDialog } from '@/components/customers/EditCustomerDialog';
 import { MeasurementManager } from '@/components/measurements/MeasurementManager';
+import { formatCurrency } from '@/utils/currencyUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -317,7 +318,7 @@ export default function CustomerDetail() {
                             <td className="p-2 font-medium">#{order.id}</td>
                             <td className="p-2">{formatDate(order.createdAt)}</td>
                             <td className="p-2">{order.orderTypeDisplay}</td>
-                            <td className="p-2">${order.totalAmount.toFixed(2)}</td>
+                            <td className="p-2">{formatCurrency(order.totalAmount)}</td>
                             <td className="p-2">
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 order.status === 'completed' ? 'bg-green-100 text-green-800' :
