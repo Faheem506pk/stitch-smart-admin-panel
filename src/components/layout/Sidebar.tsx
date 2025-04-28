@@ -48,6 +48,7 @@ export function Sidebar({
     { path: "/measurements", label: "Measurements", icon: Scissors, permission: { section: 'measurements' as const, action: 'view' as const } },
     { path: "/orders", label: "Orders", icon: FileText, permission: { section: 'orders' as const, action: 'view' as const } },
     { path: "/delivery", label: "Delivery", icon: Truck, permission: { section: 'orders' as const, action: 'view' as const } },
+    { path: "/profile", label: "My Profile", icon: Users, permission: null },
     { path: "/settings", label: "Settings", icon: Settings, permission: { section: 'settings' as const, action: 'view' as const } },
   ];
   
