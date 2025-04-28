@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { employeeService } from '@/services/employeeService';
+import { authService } from '@/services/firebase';
 import { toast } from 'sonner';
 import { User, Key, X } from 'lucide-react';
 import { Employee } from '@/types/models';
@@ -29,10 +30,22 @@ export function EmployeeCredentials({
   employee,
   mode
 }: EmployeeCredentialsProps) {
-  const [email, setEmail] = useState(employee?.email || '');
+  const [email, setEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Update email state when employee changes or dialog opens
+  useEffect(() => {
+    if (employee && isOpen) {
+      setEmail(employee.email || '');
+      // Reset other fields when dialog opens
+      setCurrentPassword('');
+      setPassword('');
+      setConfirmPassword('');
+    }
+  }, [employee, isOpen]);
 
   const handleSubmit = async () => {
     // Validate inputs
@@ -60,17 +73,93 @@ export function EmployeeCredentials({
         // Update existing employee credentials
         const updates: Partial<Employee> = { email };
         
-        if (password) {
-          // In a real application, you would use Firebase Auth to update the password
-          // For this demo, we'll just simulate updating a hashed password
-          updates.passwordLastChanged = new Date().toISOString();
-          updates.passwordResetRequired = false;
-          
-          // This is where you would store a hashed password in a real app
-          // For demo, we'll just store a dummy value
-          updates.password = 'hashed-password';
+        // Check if email is being changed
+        const isEmailChanged = email !== employee.email;
+        
+        // For password changes, we need the current password
+        if (password && !currentPassword) {
+          toast.error('Current password is required to change password');
+          setIsLoading(false);
+          return;
         }
         
+        // Handle email change
+        if (isEmailChanged) {
+          // Update email in Firebase Auth if the user is currently logged in
+          const currentUser = authService.getCurrentUser();
+          
+          if (currentUser && currentUser.email === employee.email) {
+            // User is updating their own email
+            // For security, Firebase requires re-authentication to update email
+            // If current password is provided, try to update directly
+            if (currentPassword) {
+              try {
+                const result = await authService.updateUserEmail(email, currentPassword);
+                if (!result.success) {
+                  toast.error(`Failed to update email: ${result.error}`);
+                  setIsLoading(false);
+                  return;
+                }
+              } catch (error) {
+                console.error("Error updating email:", error);
+                toast.error("Failed to update email. Please check your current password.");
+                setIsLoading(false);
+                return;
+              }
+            } else {
+              // If no current password provided, create a new account instead
+              try {
+                const { user, error } = await authService.createUser(email, "admin123");
+                
+                if (error && !error.includes("already in use")) {
+                  toast.error(`Failed to create account with new email: ${error}`);
+                  setIsLoading(false);
+                  return;
+                }
+                
+                if (user || error?.includes("already in use")) {
+                  toast.success(`Email updated to ${email}. Password set to "admin123"`);
+                }
+              } catch (error) {
+                console.error("Error creating user with new email:", error);
+                // Continue anyway, as we'll update the Firestore document
+              }
+            }
+          } else {
+            // Admin is updating someone else's email
+            // Create a new Firebase Auth account with the new email
+            try {
+              const { user, error } = await authService.createUser(email, "admin123");
+              
+              if (error && !error.includes("already in use")) {
+                toast.error(`Failed to create account with new email: ${error}`);
+                setIsLoading(false);
+                return;
+              }
+              
+              if (user || error?.includes("already in use")) {
+                toast.success(`Email updated to ${email}. Password set to "admin123"`);
+              }
+            } catch (error) {
+              console.error("Error creating user with new email:", error);
+              // Continue anyway, as we'll update the Firestore document
+            }
+          }
+        }
+        
+        if (password) {
+          // Update password in Firebase Auth
+          const currentUser = authService.getCurrentUser();
+          if (currentUser && currentUser.email === employee.email) {
+            // Use the current password for authentication
+            await employeeService.changePassword(employee.id, password, currentPassword);
+          } else {
+            // Admin is updating someone else's password
+            await employeeService.changePassword(employee.id, password);
+          }
+        }
+        
+        // Update employee record in Firestore
         const success = await employeeService.updateEmployee(employee.id, updates);
         if (success) {
           toast.success('Employee credentials updated successfully');
@@ -118,6 +207,23 @@ export function EmployeeCredentials({
               />
             </div>
           </div>
+
+          {mode === 'update' && (
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <div className="relative">
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  className="pl-10"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">

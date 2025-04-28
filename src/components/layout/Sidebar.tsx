@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { usePermissions } from "@/hooks/use-permissions";
 import { 
   LayoutDashboard, 
   Users, 
@@ -37,15 +38,25 @@ export function Sidebar({
   const { theme, setTheme } = useTheme();
   const isMobile = useIsMobile();
 
-  const navItems = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/employees", label: "Employees", icon: Users },
-    { path: "/customers", label: "Customers", icon: Users },
-    { path: "/measurements", label: "Measurements", icon: Scissors },
-    { path: "/orders", label: "Orders", icon: FileText },
-    { path: "/delivery", label: "Delivery", icon: Truck },
-    { path: "/settings", label: "Settings", icon: Settings },
+  const { canView } = usePermissions();
+  
+  // Define all possible nav items
+  const allNavItems = [
+    { path: "/", label: "Dashboard", icon: LayoutDashboard, permission: null },
+    { path: "/employees", label: "Employees", icon: Users, permission: { section: 'employees' as const, action: 'view' as const } },
+    { path: "/customers", label: "Customers", icon: Users, permission: { section: 'customers' as const, action: 'view' as const } },
+    { path: "/measurements", label: "Measurements", icon: Scissors, permission: { section: 'measurements' as const, action: 'view' as const } },
+    { path: "/orders", label: "Orders", icon: FileText, permission: { section: 'orders' as const, action: 'view' as const } },
+    { path: "/delivery", label: "Delivery", icon: Truck, permission: { section: 'orders' as const, action: 'view' as const } },
+    { path: "/profile", label: "My Profile", icon: Users, permission: null },
+    { path: "/settings", label: "Settings", icon: Settings, permission: { section: 'settings' as const, action: 'view' as const } },
   ];
+  
+  // Filter nav items based on permissions
+  const navItems = allNavItems.filter(item => 
+    item.permission === null || 
+    (item.permission && canView(item.permission.section))
+  );
 
   return (
     <aside

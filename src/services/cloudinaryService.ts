@@ -11,7 +11,7 @@ interface CloudinaryConfig {
 const DEFAULT_CONFIG: CloudinaryConfig = {
   cloudName: "dajdqqwkw",
   apiKey: "669533461595128",
-  uploadPreset: "stitchsmart"
+  uploadPreset: "ml_default" // Using the default unsigned preset
 };
 
 class CloudinaryService {
@@ -82,7 +82,7 @@ class CloudinaryService {
       // Prepare form data for upload
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', this.config.uploadPreset || 'stitchsmart');
+      formData.append('upload_preset', this.config.uploadPreset || 'ml_default');
       formData.append('api_key', this.config.apiKey);
       
       toast.loading("Uploading image to Cloudinary...");
@@ -121,7 +121,7 @@ class CloudinaryService {
     return new Promise((resolve) => {
       const options = {
         cloudName: this.config.cloudName,
-        uploadPreset: this.config.uploadPreset || 'stitchsmart',
+        uploadPreset: this.config.uploadPreset || 'ml_default',
         apiKey: this.config.apiKey,
         sources: ['local', 'camera'],
         multiple: false,

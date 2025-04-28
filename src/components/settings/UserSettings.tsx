@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePermissions } from '@/hooks/use-permissions';
 import {
   Card,
   CardContent,
@@ -35,7 +36,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import { Employee } from '@/types/models';
 import { employeeService } from '@/services/employeeService';
-import { RotateCcw, Plus, Trash, PenLine, Check, X } from 'lucide-react';
+import { RotateCcw, Plus, Trash, PenLine, Check, X, Shield } from 'lucide-react';
+import { PermissionManager } from './PermissionManager';
 
 interface UserSettingsProps {
   onEditCredentials: (employee: Employee) => void;
@@ -45,12 +47,16 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
+  const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const { canDelete, canEdit, canAdd } = usePermissions();
   const [newEmployee, setNewEmployee] = useState({
     name: '',
     email: '',
     phoneNumber: '',
     position: '',
     role: 'employee' as 'admin' | 'employee',
+    password: '',
   });
 
   // Fetch employees
@@ -74,15 +80,16 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
   
   // Add new employee
   const addNewEmployee = async () => {
-    if (!newEmployee.name || !newEmployee.email || !newEmployee.position) {
+    if (!newEmployee.name || !newEmployee.email || !newEmployee.position || !newEmployee.password) {
       toast.error('Please fill all required fields');
       return;
     }
     
     try {
       // Create the new employee
-      const employeeData = {
-        ...newEmployee,
+      const { password, ...employeeData } = newEmployee;
+      const employeeWithMeta = {
+        ...employeeData,
         hireDate: new Date().toISOString(),
         permissions: getDefaultPermissions(newEmployee.role),
         passwordResetRequired: true,
@@ -90,7 +97,7 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
         updatedAt: new Date().toISOString()
       };
       
-      const addedEmployee = await employeeService.addEmployee(employeeData);
+      const addedEmployee = await employeeService.addEmployee(employeeWithMeta, password);
       
       if (addedEmployee) {
         toast.success('Employee added successfully!');
@@ -100,6 +107,7 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
           phoneNumber: '',
           position: '',
           role: 'employee',
+          password: '',
         });
         setIsAddEmployeeDialogOpen(false);
         fetchEmployees();
@@ -205,10 +213,12 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
               Manage user accounts and permissions
             </CardDescription>
           </div>
-          <Button onClick={() => setIsAddEmployeeDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Employee
-          </Button>
+          {canAdd('employees') && (
+            <Button onClick={() => setIsAddEmployeeDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Employee
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -261,32 +271,52 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
                         </Select>
                       </TableCell>
                       <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resetEmployeePassword(employee)}
-                          className="h-8"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Reset
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onEditCredentials(employee)}
-                          className="h-8"
-                        >
-                          <PenLine className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteEmployee(employee.id)}
-                          className="h-8 text-destructive hover:text-destructive"
-                        >
-                          <Trash className="h-3 w-3" />
-                        </Button>
+                        {canEdit('employees') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEmployee(employee);
+                              setIsPermissionDialogOpen(true);
+                            }}
+                            className="h-8"
+                          >
+                            <Shield className="h-3 w-3 mr-1" />
+                            Permissions
+                          </Button>
+                        )}
+                        {canEdit('employees') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resetEmployeePassword(employee)}
+                            className="h-8"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Reset
+                          </Button>
+                        )}
+                        {canEdit('employees') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEditCredentials(employee)}
+                            className="h-8"
+                          >
+                            <PenLine className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {canDelete('employees') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteEmployee(employee.id)}
+                            className="h-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash className="h-3 w-3" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -370,6 +400,18 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
                 </SelectContent>
               </Select>
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="employeePassword">Password</Label>
+              <Input
+                id="employeePassword"
+                type="password"
+                name="password"
+                placeholder="Temporary password"
+                value={newEmployee.password}
+                onChange={handleEmployeeInputChange}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddEmployeeDialogOpen(false)}>
@@ -383,6 +425,18 @@ export function UserSettings({ onEditCredentials }: UserSettingsProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permission Manager Dialog */}
+      {selectedEmployee && (
+        <PermissionManager
+          isOpen={isPermissionDialogOpen}
+          onClose={() => {
+            setIsPermissionDialogOpen(false);
+            fetchEmployees(); // Refresh the employee list to get updated permissions
+          }}
+          employee={selectedEmployee}
+        />
+      )}
     </>
   );
 }

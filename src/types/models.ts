@@ -21,6 +21,12 @@ export interface Employee {
   hireDate: string;
   profilePicture?: string;
   permissions: Permissions;
+  firebaseUid?: string;
+  passwordResetRequired?: boolean;
+  passwordLastChanged?: string;
+  passwordResetRequestedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Permissions {

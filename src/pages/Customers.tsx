@@ -1,8 +1,10 @@
 
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { customerService } from "@/services/customerService";
 import { Customer } from "@/types/models";
@@ -19,11 +21,26 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { format } from "date-fns";
 
 const Customers = () => {
+  const navigate = useNavigate();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  
+  // Filter customers based on search query
+  const filteredCustomers = useMemo(() => {
+    if (!searchQuery.trim()) return customers;
+    
+    const lowerQuery = searchQuery.toLowerCase();
+    return customers.filter(
+      customer => 
+        customer.name.toLowerCase().includes(lowerQuery) || 
+        customer.phone.toLowerCase().includes(lowerQuery) ||
+        (customer.email && customer.email.toLowerCase().includes(lowerQuery))
+    );
+  }, [customers, searchQuery]);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -75,17 +92,28 @@ const Customers = () => {
   return (
     <Layout>
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your tailor shop customers.
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+              <p className="text-muted-foreground mt-1">
+                Manage your tailor shop customers.
+              </p>
+            </div>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="mr-2" />
+              Add Customer
+            </Button>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="mr-2" />
-            Add Customer
-          </Button>
+          
+          <div className="relative">
+            <Input
+              placeholder="Search customers by name or phone..."
+              className="max-w-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
         
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -107,14 +135,18 @@ const Customers = () => {
                       Loading customers...
                     </TableCell>
                   </TableRow>
-                ) : customers.length === 0 ? (
+                ) : filteredCustomers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-4">
-                      <p className="text-muted-foreground">No customers found. Add your first customer.</p>
+                      {searchQuery ? (
+                        <p className="text-muted-foreground">No customers found matching "{searchQuery}"</p>
+                      ) : (
+                        <p className="text-muted-foreground">No customers found. Add your first customer.</p>
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  customers.map((customer) => (
+                  filteredCustomers.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell>{customer.name}</TableCell>
                       <TableCell className="flex items-center gap-2">
@@ -150,12 +182,11 @@ const Customers = () => {
                       <TableCell>{formatDate(customer.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => {
-                            toast({
-                              title: "Coming Soon",
-                              description: "Edit feature will be available soon.",
-                            });
-                          }}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => navigate(`/customers/${customer.id}`)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="outline" size="sm" className="text-destructive" onClick={() => setCustomerToDelete(customer.id)}>

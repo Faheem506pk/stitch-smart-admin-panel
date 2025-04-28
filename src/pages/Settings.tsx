@@ -6,13 +6,14 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { SettingsIcon, Database, Image, Scissors, FileText, User } from 'lucide-react';
+import { SettingsIcon, Database, Image, Scissors, FileText, User, UserCircle } from 'lucide-react';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import { FirebaseSettings } from '@/components/settings/FirebaseSettings';
 import { CloudinarySettings } from '@/components/settings/CloudinarySettings';
 import { MeasurementSettings } from '@/components/settings/MeasurementSettings';
 import { BusinessSettings } from '@/components/settings/BusinessSettings';
 import { UserSettings } from '@/components/settings/UserSettings';
+import { UserProfile } from '@/components/settings/UserProfile';
 import { EmployeeCredentials } from '@/components/auth/EmployeeCredentials';
 import { Employee } from '@/types/models';
 
@@ -39,6 +40,10 @@ export default function Settings() {
         
         <Tabs defaultValue="general" onValueChange={setActiveTab}>
           <TabsList className="mb-4 flex flex-wrap">
+            <TabsTrigger value="profile">
+              <UserCircle className="h-4 w-4 mr-2" />
+              My Profile
+            </TabsTrigger>
             <TabsTrigger value="general">
               <SettingsIcon className="h-4 w-4 mr-2" />
               General
@@ -64,6 +69,10 @@ export default function Settings() {
               Users
             </TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="profile" className="space-y-4">
+            <UserProfile />
+          </TabsContent>
           
           <TabsContent value="general" className="space-y-4">
             <GeneralSettings />

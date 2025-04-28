@@ -1,6 +1,8 @@
 
-import { useState } from "react";
-import { Bell, Search, Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Search, Menu, User, LogOut } from "lucide-react";
+import { useStore } from "@/store/useStore";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +22,9 @@ interface HeaderProps {
 }
 
 export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
+  const { user, logout } = useStore();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [notifications] = useState([
     {
       id: 1,
@@ -39,6 +44,12 @@ export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
   ]);
 
   const isMobile = useIsMobile();
+  
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header
@@ -68,11 +79,18 @@ export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search..."
+              placeholder="Search customers, orders..."
               className={cn(
                 "w-full rounded-md pl-8",
                 isMobile ? "max-w-[150px]" : "md:w-[300px] lg:w-[400px]"
               )}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                }
+              }}
             />
           </div>
         </div>
@@ -108,15 +126,43 @@ export function Header({ sidebarCollapsed, onMobileToggle }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-              <span className="text-sm font-medium text-primary">A</span>
-            </div>
-            <div className="hidden md:block">
-              <p className="text-sm font-medium">Admin User</p>
-              <p className="text-xs text-muted-foreground">Administrator</p>
-            </div>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2 px-2">
+                <div className="h-8 w-8 rounded-full overflow-hidden">
+                  {user?.profilePicture ? (
+                    <img 
+                      src={user.profilePicture} 
+                      alt={user?.name || 'User'} 
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-primary/20 flex items-center justify-center">
+                      <span className="text-sm font-medium text-primary">
+                        {user?.name?.charAt(0) || 'A'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-medium">{user?.name || 'Admin User'}</p>
+                  <p className="text-xs text-muted-foreground">{user?.role === 'admin' ? 'Administrator' : 'Employee'}</p>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Logout</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

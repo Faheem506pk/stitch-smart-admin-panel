@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Layout } from "@/components/layout/Layout";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   Table, 
@@ -35,7 +36,9 @@ interface Order {
     name: string;
     phone: string;
   };
-  orderType: string;
+  orderType?: string;
+  orderTypes?: string[];
+  orderTypeDisplay?: string;
   totalAmount: number;
   advanceAmount: number;
   remainingAmount: number;
@@ -46,6 +49,7 @@ interface Order {
 }
 
 const Orders = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddOrderDialogOpen, setIsAddOrderDialogOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -89,8 +93,10 @@ const Orders = () => {
     const searchString = searchTerm.toLowerCase();
     return (
       order.customer.name.toLowerCase().includes(searchString) ||
-      order.orderType.toLowerCase().includes(searchString) ||
-      order.id.toLowerCase().includes(searchString)
+      (order.orderType && order.orderType.toLowerCase().includes(searchString)) ||
+      (order.orderTypeDisplay && order.orderTypeDisplay.toLowerCase().includes(searchString)) ||
+      order.id.toString().toLowerCase().includes(searchString) ||
+      (order.customer.phone && order.customer.phone.toLowerCase().includes(searchString))
     );
   });
 
@@ -172,9 +178,18 @@ const Orders = () => {
               <TableBody>
                 {filteredOrders.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.id}</TableCell>
+                    <TableCell className="font-medium">
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto font-medium"
+                        onClick={() => navigate(`/orders/${order.id}`)}
+                      >
+                        {/* Remove leading zeros and ensure proper display */}
+                        {parseInt(order.id).toString()}
+                      </Button>
+                    </TableCell>
                     <TableCell>{order.customer.name}</TableCell>
-                    <TableCell>{order.orderType}</TableCell>
+                  <TableCell>{order.orderTypeDisplay || order.orderType}</TableCell>
                     <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                     <TableCell>{formatCurrency(order.remainingAmount)}</TableCell>
                     <TableCell>{formatDate(order.dueDate)}</TableCell>
@@ -188,8 +203,12 @@ const Orders = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Edit Order</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}/edit`)}>
+                            Edit Order
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => handleDeleteOrder(order.id)}

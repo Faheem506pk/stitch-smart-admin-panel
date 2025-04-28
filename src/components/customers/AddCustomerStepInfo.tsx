@@ -82,15 +82,36 @@ export function AddCustomerStepInfo({
   const handleCloudinaryUpload = async () => {
     setIsUploading(true);
     try {
-      const imageUrl = await cloudinaryService.openUploadWidget();
-      if (imageUrl) {
-        setProfileImage(imageUrl);
-        setCustomerData((prev) => ({ ...prev, profilePicture: imageUrl }));
-      }
+      // Use direct upload instead of widget to avoid preset issues
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          try {
+            const imageUrl = await cloudinaryService.uploadImage(file);
+            if (imageUrl) {
+              setProfileImage(imageUrl);
+              setCustomerData((prev) => ({ ...prev, profilePicture: imageUrl }));
+              toast.success("Profile image uploaded successfully");
+            }
+          } catch (error) {
+            console.error("Error uploading image:", error);
+            toast.error("Failed to upload image. Please try again.");
+          } finally {
+            setIsUploading(false);
+          }
+        } else {
+          setIsUploading(false);
+        }
+      };
+      
+      input.click();
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error("Failed to upload image. Please try again.");
-    } finally {
       setIsUploading(false);
     }
   };

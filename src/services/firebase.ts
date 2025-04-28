@@ -6,7 +6,20 @@ import {
   orderBy, getDoc, 
   setDoc
 } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { 
+  getAuth, 
+  Auth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  sendPasswordResetEmail, 
+  updatePassword, 
+  updateEmail,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  sendEmailVerification,
+  User as FirebaseUser,
+  signOut
+} from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
 export interface FirebaseConfig {
@@ -73,8 +86,158 @@ export const getFirebaseInstances = () => {
   return { app, db, auth, storage };
 };
 
-// Export the db instance directly so it can be imported in components
-export { db };
+// Export the db and auth instances directly so they can be imported in components
+export { db, auth };
+
+// Firebase Authentication Service
+export const authService = {
+  // Mock function to simulate setting a default password (requires Firebase Admin SDK in real implementation)
+  mockSetDefaultPassword: async (email: string, defaultPassword: string = "admin123"): Promise<{success: boolean, error: string | null}> => {
+    if (!auth) {
+      return { success: false, error: "Firebase Auth not initialized" };
+    }
+    
+    try {
+      // In a real implementation with Firebase Admin SDK, we would set the password directly
+      // For this demo, we'll send a password reset email and pretend we set the password
+      await sendPasswordResetEmail(auth, email);
+      
+      console.log(`[MOCK] Password for ${email} has been set to "${defaultPassword}"`);
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error in mock set default password:", error);
+      return { success: false, error: error.message || "Failed to set default password" };
+    }
+  },
+  // Get current user
+  getCurrentUser: () => {
+    if (!auth) return null;
+    return auth.currentUser;
+  },
+
+  // Create a new user with email and password
+  createUser: async (email: string, password: string): Promise<{user: FirebaseUser, error: null} | {user: null, error: string}> => {
+    if (!auth) {
+      console.error("Firebase Auth not initialized");
+      return { user: null, error: "Firebase Auth not initialized" };
+    }
+    
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      return { user: userCredential.user, error: null };
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      return { user: null, error: error.message || "Failed to create user" };
+    }
+  },
+  
+  // Sign in with email and password
+  signIn: async (email: string, password: string): Promise<{user: FirebaseUser, error: null} | {user: null, error: string}> => {
+    if (!auth) {
+      console.error("Firebase Auth not initialized");
+      return { user: null, error: "Firebase Auth not initialized" };
+    }
+    
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return { user: userCredential.user, error: null };
+    } catch (error: any) {
+      console.error("Error signing in:", error);
+      return { user: null, error: error.message || "Failed to sign in" };
+    }
+  },
+  
+  // Sign out the current user
+  signOut: async (): Promise<{success: boolean, error: string | null}> => {
+    if (!auth) {
+      return { success: false, error: "Firebase Auth not initialized" };
+    }
+    
+    try {
+      await signOut(auth);
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error signing out:", error);
+      return { success: false, error: error.message || "Failed to sign out" };
+    }
+  },
+  
+  // Send password reset email
+  sendPasswordResetEmail: async (email: string): Promise<{success: boolean, error: string | null}> => {
+    if (!auth) {
+      return { success: false, error: "Firebase Auth not initialized" };
+    }
+    
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      return { success: false, error: error.message || "Failed to send password reset email" };
+    }
+  },
+  
+  // Update user email
+  updateUserEmail: async (newEmail: string, currentPassword: string): Promise<{success: boolean, error: string | null}> => {
+    if (!auth || !auth.currentUser) {
+      return { success: false, error: "No authenticated user" };
+    }
+    
+    try {
+      // Re-authenticate user before changing email
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email || '', 
+        currentPassword
+      );
+      
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updateEmail(auth.currentUser, newEmail);
+      
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error updating email:", error);
+      return { success: false, error: error.message || "Failed to update email" };
+    }
+  },
+  
+  // Update user password
+  updateUserPassword: async (currentPassword: string, newPassword: string): Promise<{success: boolean, error: string | null}> => {
+    if (!auth || !auth.currentUser) {
+      return { success: false, error: "No authenticated user" };
+    }
+    
+    try {
+      // Re-authenticate user before changing password
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email || '', 
+        currentPassword
+      );
+      
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, newPassword);
+      
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error updating password:", error);
+      return { success: false, error: error.message || "Failed to update password" };
+    }
+  },
+  
+  // Send email verification
+  sendEmailVerification: async (): Promise<{success: boolean, error: string | null}> => {
+    if (!auth || !auth.currentUser) {
+      return { success: false, error: "No authenticated user" };
+    }
+    
+    try {
+      await sendEmailVerification(auth.currentUser);
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error("Error sending email verification:", error);
+      return { success: false, error: error.message || "Failed to send email verification" };
+    }
+  }
+};
 
 // Store Firebase config in localStorage
 export const storeFirebaseConfig = (config: FirebaseConfig) => {

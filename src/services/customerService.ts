@@ -2,6 +2,7 @@
 import { firestoreService } from '@/services/firebase';
 import { Customer, Measurement, Order, Payment, Employee } from '@/types/models';
 import { toast } from "sonner";
+import { hasPermission } from '@/utils/permissionUtils';
 
 const CUSTOMER_COLLECTION = 'customers';
 const MEASUREMENT_COLLECTION = 'measurements';
@@ -80,6 +81,12 @@ export const customerService = {
   // Delete a customer
   deleteCustomer: async (id: string): Promise<boolean> => {
     try {
+      // Check if user has permission to delete customers
+      if (!hasPermission('customers', 'delete')) {
+        toast.error("You don't have permission to delete customers");
+        return false;
+      }
+      
       const success = await firestoreService.deleteDocument(CUSTOMER_COLLECTION, id);
       if (success) {
         toast.success("Customer deleted successfully!");
@@ -171,6 +178,12 @@ export const customerService = {
   // Delete measurement
   deleteMeasurement: async (id: string): Promise<boolean> => {
     try {
+      // Check if user has permission to edit measurements
+      if (!hasPermission('measurements', 'edit')) {
+        toast.error("You don't have permission to delete measurements");
+        return false;
+      }
+      
       const success = await firestoreService.deleteDocument(MEASUREMENT_COLLECTION, id);
       if (success) {
         toast.success("Measurement deleted successfully!");
@@ -253,6 +266,12 @@ export const customerService = {
   // Delete order
   deleteOrder: async (id: string): Promise<boolean> => {
     try {
+      // Check if user has permission to delete orders
+      if (!hasPermission('orders', 'delete')) {
+        toast.error("You don't have permission to delete orders");
+        return false;
+      }
+      
       const success = await firestoreService.deleteDocument(ORDER_COLLECTION, id);
       if (success) {
         toast.success("Order deleted successfully!");
