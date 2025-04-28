@@ -231,9 +231,15 @@ export function AddCustomerFlow({ open, onOpenChange }: AddCustomerFlowProps) {
 
     try {
       if (orderData.items.length > 0) {
+        // Transform OrderItemFormData[] to OrderItem[]
+        const orderItems = orderData.items.map(item => ({
+          ...item,
+          id: item.id || crypto.randomUUID(), // Ensure each item has an id
+        }));
+
         const orderToSave = {
           customerId: savedCustomerId,
-          items: orderData.items,
+          items: orderItems, // Use the transformed items
           status: orderData.status,
           totalAmount: orderData.totalAmount,
           advanceAmount: paymentData.advanceAmount,
