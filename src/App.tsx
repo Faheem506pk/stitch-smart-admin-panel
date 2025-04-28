@@ -16,6 +16,7 @@ import CustomerDetail from "./pages/CustomerDetail";
 import Measurements from "./pages/Measurements";
 import Orders from "./pages/Orders";
 import OrderDetail from "./pages/OrderDetail";
+import EditOrder from "./pages/EditOrder";
 import Delivery from "./pages/Delivery";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
@@ -80,6 +81,11 @@ const App = () => {
               <Route path="/orders/:id" element={
                 <ProtectedRoute requiredPermission={{ section: 'orders', action: 'view' }}>
                   <OrderDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/orders/:id/edit" element={
+                <ProtectedRoute requiredPermission={{ section: 'orders', action: 'edit' }}>
+                  <EditOrder />
                 </ProtectedRoute>
               } />
               <Route path="/delivery" element={
