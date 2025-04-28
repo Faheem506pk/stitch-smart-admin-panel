@@ -12,10 +12,13 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
 import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
 import Measurements from "./pages/Measurements";
 import Orders from "./pages/Orders";
+import OrderDetail from "./pages/OrderDetail";
 import Delivery from "./pages/Delivery";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Search from "./pages/Search";
 import { checkAndSeedData } from "./lib/dataSeeder";
@@ -59,6 +62,11 @@ const App = () => {
                   <Customers />
                 </ProtectedRoute>
               } />
+              <Route path="/customers/:id" element={
+                <ProtectedRoute requiredPermission={{ section: 'customers', action: 'view' }}>
+                  <CustomerDetail />
+                </ProtectedRoute>
+              } />
               <Route path="/measurements" element={
                 <ProtectedRoute requiredPermission={{ section: 'measurements', action: 'view' }}>
                   <Measurements />
@@ -67,6 +75,11 @@ const App = () => {
               <Route path="/orders" element={
                 <ProtectedRoute requiredPermission={{ section: 'orders', action: 'view' }}>
                   <Orders />
+                </ProtectedRoute>
+              } />
+              <Route path="/orders/:id" element={
+                <ProtectedRoute requiredPermission={{ section: 'orders', action: 'view' }}>
+                  <OrderDetail />
                 </ProtectedRoute>
               } />
               <Route path="/delivery" element={
@@ -82,6 +95,11 @@ const App = () => {
               <Route path="/search" element={
                 <ProtectedRoute>
                   <Search />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
