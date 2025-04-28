@@ -410,6 +410,11 @@ export function AddOrderDialog({ open, onOpenChange }: AddOrderDialogProps) {
                       className="flex-1 outline-none bg-transparent"
                       onChange={(e) => filterCustomers(e.target.value)}
                     />
+                    {customerId && (
+                      <div className="bg-primary/10 px-2 py-1 rounded-md text-sm mr-2">
+                        {customers.find(c => c.id === customerId)?.name || 'Selected'}
+                      </div>
+                    )}
                     <Button 
                       type="button" 
                       variant="ghost" 
