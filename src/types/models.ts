@@ -1,21 +1,35 @@
 // Basic types for our tailor shop management system
 
+export interface TenantConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  cloudinaryUploadPreset: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'employee';
+  role: "admin" | "employee" | "super_admin";
   permissions: Permissions;
   profilePicture?: string;
   createdAt: string;
   lastLogin?: string;
+  status?: "active" | "banned";
+  tenantConfig?: TenantConfig; // Optional: Only admins/tenants have this
 }
 
 export interface Employee {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'employee';
+  role: "admin" | "employee";
   phoneNumber: string;
   position: string;
   hireDate: string;
@@ -92,7 +106,7 @@ export interface Order {
   id: string;
   customerId: string;
   items: OrderItem[];
-  status: 'pending' | 'stitching' | 'ready' | 'delivered';
+  status: "pending" | "stitching" | "ready" | "delivered";
   totalAmount: number;
   advanceAmount: number;
   balanceAmount: number;
@@ -119,7 +133,7 @@ export interface Payment {
   id: string;
   orderId: string;
   amount: number;
-  paymentMethod: 'cash' | 'other';
+  paymentMethod: "cash" | "other";
   date: string;
   notes?: string;
   receivedBy: string; // User ID
@@ -128,8 +142,8 @@ export interface Payment {
 export interface AuditLog {
   id: string;
   userId: string;
-  action: 'create' | 'update' | 'delete';
-  entityType: 'customer' | 'order' | 'measurement' | 'payment' | 'employee';
+  action: "create" | "update" | "delete";
+  entityType: "customer" | "order" | "measurement" | "payment" | "employee";
   entityId: string;
   changes: {
     [key: string]: {

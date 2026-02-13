@@ -1,29 +1,17 @@
-
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Layout } from "@/components/layout/Layout";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Plus, Search, MoreVertical, Loader2 } from "lucide-react";
 import { AddOrderDialog } from "@/components/orders/AddOrderDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
+import { useTenant } from "@/context/TenantContext";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/utils/currencyUtils";
@@ -54,17 +42,23 @@ const Orders = () => {
   const [isAddOrderDialogOpen, setIsAddOrderDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  // Use Tenant Context
+  const { tenantDb, isTenantConfigured } = useTenant();
+
   // Fetch orders
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["orders"],
+    queryKey: ["orders", isTenantConfigured], // Add dependency on configuration
     queryFn: async () => {
-      const ordersCollection = collection(db, "orders");
+      if (!isTenantConfigured || !tenantDb) return [];
+
+      const ordersCollection = collection(tenantDb, "orders");
       const snapshot = await getDocs(ordersCollection);
       return snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Order[];
     },
+    enabled: !!isTenantConfigured && !!tenantDb, // Only run if configured
   });
 
   // Delete order mutation
@@ -76,7 +70,7 @@ const Orders = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast("Order deleted successfully", {
-        position: "top-center"
+        position: "top-center",
       });
     },
     onError: (error) => {
@@ -113,13 +107,29 @@ const Orders = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-300">Pending</Badge>;
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-300">
+            Pending
+          </Badge>
+        );
       case "in-progress":
-        return <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-300">In Progress</Badge>;
+        return (
+          <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-300">
+            In Progress
+          </Badge>
+        );
       case "completed":
-        return <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-300">Completed</Badge>;
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-300">
+            Completed
+          </Badge>
+        );
       case "delivered":
-        return <Badge variant="outline" className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-300">Delivered</Badge>;
+        return (
+          <Badge variant="outline" className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-300">
+            Delivered
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -144,12 +154,7 @@ const Orders = () => {
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search orders..."
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
 
         {isLoading ? (
@@ -179,17 +184,13 @@ const Orders = () => {
                 {filteredOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
-                      <Button 
-                        variant="link" 
-                        className="p-0 h-auto font-medium"
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                      >
+                      <Button variant="link" className="p-0 h-auto font-medium" onClick={() => navigate(`/orders/${order.id}`)}>
                         {/* Remove leading zeros and ensure proper display */}
                         {parseInt(order.id).toString()}
                       </Button>
                     </TableCell>
                     <TableCell>{order.customer.name}</TableCell>
-                  <TableCell>{order.orderTypeDisplay || order.orderType}</TableCell>
+                    <TableCell>{order.orderTypeDisplay || order.orderType}</TableCell>
                     <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                     <TableCell>{formatCurrency(order.remainingAmount)}</TableCell>
                     <TableCell>{formatDate(order.dueDate)}</TableCell>
@@ -203,16 +204,9 @@ const Orders = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}/edit`)}>
-                            Edit Order
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDeleteOrder(order.id)}
-                          >
+                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>View Details</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}/edit`)}>Edit Order</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteOrder(order.id)}>
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -225,10 +219,7 @@ const Orders = () => {
           </div>
         )}
 
-        <AddOrderDialog
-          open={isAddOrderDialogOpen}
-          onOpenChange={setIsAddOrderDialogOpen}
-        />
+        <AddOrderDialog open={isAddOrderDialogOpen} onOpenChange={setIsAddOrderDialogOpen} />
       </div>
     </Layout>
   );

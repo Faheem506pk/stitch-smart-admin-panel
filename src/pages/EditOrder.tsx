@@ -1,22 +1,22 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { CalendarIcon, ArrowLeft, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { firestoreService } from '@/services/firebase';
-import { getFirebaseInstances } from '@/services/firebase';
-import { collection, getDocs } from 'firebase/firestore';
-import { formatCurrency } from '@/utils/currencyUtils';
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { CalendarIcon, ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { firestoreService } from "@/services/firebase";
+import { useTenant } from "@/context/TenantContext";
+import { collection, getDocs } from "firebase/firestore";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 interface Customer {
   id: string;
@@ -67,80 +67,75 @@ export default function EditOrder() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch order data
-  useEffect(() => {
-    if (id) {
-      fetchOrder(id);
-      fetchCustomers();
-      fetchMeasurementTypes();
-    }
-  }, [id]);
+  const { tenantDb, isTenantConfigured } = useTenant();
 
-  const fetchOrder = async (orderId: string) => {
-    setIsLoading(true);
-    try {
-      const data = await firestoreService.getDocumentById('orders', orderId);
-      if (data) {
-        const orderData = data as Order;
-        setOrder(orderData);
-        setCustomerId(orderData.customerId);
-        setNotes(orderData.notes || "");
-        setStatus(orderData.status);
-        setDueDate(new Date(orderData.dueDate));
-        
-        // Initialize order types
-        const initialOrderTypes = [
-          { id: "shirt", name: "Shirt", selected: false, quantity: 1, price: 0 },
-          { id: "pant", name: "Pant", selected: false, quantity: 1, price: 0 },
-          { id: "suit", name: "Suit", selected: false, quantity: 1, price: 0 },
-          { id: "dress", name: "Dress", selected: false, quantity: 1, price: 0 },
-          { id: "other", name: "Other", selected: false, quantity: 1, price: 0 },
-        ];
-        
-        // Mark selected order types and set their quantities and prices
-        const updatedOrderTypes = initialOrderTypes.map(type => {
-          const existingType = orderData.orderTypes.find(t => t.id === type.id);
-          if (existingType) {
-            return {
-              ...type,
-              selected: true,
-              quantity: existingType.quantity,
-              price: existingType.price
-            };
-          }
-          return type;
-        });
-        
-        // Add any custom order types that weren't in the initial list
-        orderData.orderTypes.forEach(orderType => {
-          if (!initialOrderTypes.some(t => t.id === orderType.id)) {
-            updatedOrderTypes.push({
-              ...orderType,
-              selected: true
-            });
-          }
-        });
-        
-        setOrderTypes(updatedOrderTypes);
-      } else {
-        toast.error('Order not found');
-        navigate('/orders');
+  const fetchOrder = useCallback(
+    async (orderId: string) => {
+      setIsLoading(true);
+      try {
+        const data = await firestoreService.getDocumentById("orders", orderId);
+        if (data) {
+          const orderData = data as Order;
+          setOrder(orderData);
+          setCustomerId(orderData.customerId);
+          setNotes(orderData.notes || "");
+          setStatus(orderData.status);
+          setDueDate(new Date(orderData.dueDate));
+
+          // Initialize order types
+          const initialOrderTypes = [
+            { id: "shirt", name: "Shirt", selected: false, quantity: 1, price: 0 },
+            { id: "pant", name: "Pant", selected: false, quantity: 1, price: 0 },
+            { id: "suit", name: "Suit", selected: false, quantity: 1, price: 0 },
+            { id: "dress", name: "Dress", selected: false, quantity: 1, price: 0 },
+            { id: "other", name: "Other", selected: false, quantity: 1, price: 0 },
+          ];
+
+          // Mark selected order types and set their quantities and prices
+          const updatedOrderTypes = initialOrderTypes.map((type) => {
+            const existingType = orderData.orderTypes.find((t) => t.id === type.id);
+            if (existingType) {
+              return {
+                ...type,
+                selected: true,
+                quantity: existingType.quantity,
+                price: existingType.price,
+              };
+            }
+            return type;
+          });
+
+          // Add any custom order types that weren't in the initial list
+          orderData.orderTypes.forEach((orderType) => {
+            if (!initialOrderTypes.some((t) => t.id === orderType.id)) {
+              updatedOrderTypes.push({
+                ...orderType,
+                selected: true,
+              });
+            }
+          });
+
+          setOrderTypes(updatedOrderTypes);
+        } else {
+          toast.error("Order not found");
+          navigate("/orders");
+        }
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        toast.error("Failed to load order details");
+        navigate("/orders");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching order:', error);
-      toast.error('Failed to load order details');
-      navigate('/orders');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [navigate],
+  );
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
-      const { db } = getFirebaseInstances() || {};
-      if (!db) return;
+      if (!tenantDb) return;
 
-      const customersCollection = collection(db, "customers");
+      const customersCollection = collection(tenantDb, "customers");
       const snapshot = await getDocs(customersCollection);
       const customersList = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -152,105 +147,106 @@ export default function EditOrder() {
       console.error("Error fetching customers:", error);
       toast.error("Failed to load customers");
     }
-  };
+  }, [tenantDb]);
 
-  const fetchMeasurementTypes = async () => {
+  const fetchMeasurementTypes = useCallback(async () => {
     try {
-      const { db } = getFirebaseInstances() || {};
-      if (!db) return;
+      if (!tenantDb) return;
 
-      const measurementTypesCollection = collection(db, "measurementTypes");
+      const measurementTypesCollection = collection(tenantDb, "measurementTypes");
       const snapshot = await getDocs(measurementTypesCollection);
-      
+
       if (!snapshot.empty) {
         const types = snapshot.docs.map((doc) => ({
           id: doc.id,
           name: doc.data().name,
           selected: false,
           quantity: 1,
-          price: 0
+          price: 0,
         }));
-        
-        setOrderTypes(prevTypes => [...prevTypes, ...types]);
+
+        setOrderTypes((prevTypes) => [...prevTypes, ...types]);
       }
     } catch (error) {
       console.error("Error fetching measurement types:", error);
     }
-  };
+  }, [tenantDb]);
+
+  // Fetch order data
+  useEffect(() => {
+    if (id && isTenantConfigured) {
+      fetchOrder(id);
+      fetchCustomers();
+      fetchMeasurementTypes();
+    }
+  }, [id, isTenantConfigured, fetchOrder, fetchCustomers, fetchMeasurementTypes]);
 
   const toggleOrderType = (id: string) => {
-    setOrderTypes(orderTypes.map(type => 
-      type.id === id ? { ...type, selected: !type.selected } : type
-    ));
-    
+    setOrderTypes(orderTypes.map((type) => (type.id === id ? { ...type, selected: !type.selected } : type)));
+
     // Recalculate total amount when order types are toggled
     calculateTotalAmount();
   };
-  
+
   const updateOrderTypeQuantity = (id: string, quantity: number) => {
-    setOrderTypes(orderTypes.map(type => 
-      type.id === id ? { ...type, quantity } : type
-    ));
-    
+    setOrderTypes(orderTypes.map((type) => (type.id === id ? { ...type, quantity } : type)));
+
     // Recalculate total amount when quantity changes
     calculateTotalAmount();
   };
-  
+
   const updateOrderTypePrice = (id: string, price: number) => {
     // Ensure price is non-negative and an integer
     const validPrice = Math.max(0, Math.round(price));
-    
-    setOrderTypes(orderTypes.map(type => 
-      type.id === id ? { ...type, price: validPrice } : type
-    ));
-    
+
+    setOrderTypes(orderTypes.map((type) => (type.id === id ? { ...type, price: validPrice } : type)));
+
     // Recalculate total amount when price changes
     calculateTotalAmount();
   };
-  
+
   const calculateTotalAmount = () => {
     if (!order) return;
-    
-    const total = orderTypes
-      .filter(type => type.selected)
-      .reduce((sum, type) => sum + (type.quantity * type.price), 0);
-    
+
+    const total = orderTypes.filter((type) => type.selected).reduce((sum, type) => sum + type.quantity * type.price, 0);
+
     setOrder({
       ...order,
       totalAmount: total,
-      remainingAmount: total - order.advanceAmount
+      remainingAmount: total - order.advanceAmount,
     });
   };
 
   const getSelectedOrderTypes = () => {
-    return orderTypes.filter(type => type.selected).map(type => type.name).join(", ");
+    return orderTypes
+      .filter((type) => type.selected)
+      .map((type) => type.name)
+      .join(", ");
   };
 
   const filterCustomers = (query: string) => {
     setSearchQuery(query);
-    
+
     if (!query.trim()) {
       setFilteredCustomers([]);
       return;
     }
-    
+
     const lowerQuery = query.toLowerCase();
     const filtered = customers.filter(
-      customer => 
-        customer.name.toLowerCase().includes(lowerQuery) || 
-        customer.phone.toLowerCase().includes(lowerQuery)
+      (customer) => customer.name.toLowerCase().includes(lowerQuery) || customer.phone.toLowerCase().includes(lowerQuery),
     );
-    
+
     setFilteredCustomers(filtered);
   };
 
   const handleSave = async () => {
     if (!order) return;
-    
+
     setIsSaving(true);
     try {
       // Check if any order type is selected
-      const selectedTypes = orderTypes.filter(type => type.selected);
+      const selectedTypes = orderTypes.filter((type) => type.selected);
       if (selectedTypes.length === 0) {
         toast.error("Please select at least one order type");
         setIsSaving(false);
@@ -272,7 +268,7 @@ export default function EditOrder() {
       }
 
       // Get customer data
-      const selectedCustomer = customers.find(c => c.id === customerId);
+      const selectedCustomer = customers.find((c) => c.id === customerId);
       if (!selectedCustomer) {
         toast.error("Selected customer not found");
         setIsSaving(false);
@@ -280,7 +276,7 @@ export default function EditOrder() {
       }
 
       // Calculate totals
-      const totalAmount = selectedTypes.reduce((sum, type) => sum + (type.quantity * type.price), 0);
+      const totalAmount = selectedTypes.reduce((sum, type) => sum + type.quantity * type.price, 0);
       const remainingAmount = totalAmount - order.advanceAmount;
 
       // Prepare order data
@@ -292,12 +288,12 @@ export default function EditOrder() {
           name: selectedCustomer.name,
           phone: selectedCustomer.phone,
         },
-        orderTypes: selectedTypes.map(type => ({
+        orderTypes: selectedTypes.map((type) => ({
           id: type.id,
           name: type.name,
           quantity: type.quantity,
           price: type.price,
-          total: type.quantity * type.price
+          total: type.quantity * type.price,
         })),
         orderTypeDisplay: getSelectedOrderTypes(),
         totalAmount,
@@ -309,8 +305,8 @@ export default function EditOrder() {
       };
 
       // Save to Firestore
-      const success = await firestoreService.updateDocument('orders', id!, updatedOrder);
-      
+      const success = await firestoreService.updateDocument("orders", id!, updatedOrder);
+
       if (success) {
         toast.success("Order updated successfully!");
         navigate(`/orders/${id}`);
@@ -330,12 +326,7 @@ export default function EditOrder() {
       <Layout>
         <div className="container mx-auto py-6">
           <div className="flex items-center gap-4 mb-6">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => navigate('/orders')}
-              className="h-8 w-8"
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate("/orders")} className="h-8 w-8">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h1 className="text-3xl font-bold">Loading Order...</h1>
@@ -352,12 +343,7 @@ export default function EditOrder() {
     <Layout>
       <div className="container mx-auto py-6">
         <div className="flex items-center gap-4 mb-6">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate(`/orders/${id}`)}
-            className="h-8 w-8"
-          >
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/orders/${id}`)} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-3xl font-bold">Edit Order #{parseInt(order.id).toString()}</h1>
@@ -383,11 +369,11 @@ export default function EditOrder() {
                   />
                   {customerId && (
                     <div className="bg-primary/10 px-2 py-1 rounded-md text-sm mr-2">
-                      {customers.find(c => c.id === customerId)?.name || order.customer.name}
+                      {customers.find((c) => c.id === customerId)?.name || order.customer.name}
                     </div>
                   )}
                 </div>
-                
+
                 {filteredCustomers.length > 0 && (
                   <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {filteredCustomers.map((customer) => (
@@ -415,20 +401,18 @@ export default function EditOrder() {
                 {orderTypes.map((type) => (
                   <div key={type.id} className="flex flex-col space-y-2 border p-3 rounded-md">
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`type-${type.id}`} 
-                        checked={type.selected}
-                        onCheckedChange={() => toggleOrderType(type.id)}
-                      />
+                      <Checkbox id={`type-${type.id}`} checked={type.selected} onCheckedChange={() => toggleOrderType(type.id)} />
                       <Label htmlFor={`type-${type.id}`} className="cursor-pointer font-medium">
                         {type.name}
                       </Label>
                     </div>
-                    
+
                     {type.selected && (
                       <div className="grid grid-cols-2 gap-2 pl-6 mt-2">
                         <div className="space-y-1">
-                          <Label htmlFor={`quantity-${type.id}`} className="text-xs">Quantity</Label>
+                          <Label htmlFor={`quantity-${type.id}`} className="text-xs">
+                            Quantity
+                          </Label>
                           <Input
                             id={`quantity-${type.id}`}
                             type="number"
@@ -439,7 +423,9 @@ export default function EditOrder() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor={`price-${type.id}`} className="text-xs">Price</Label>
+                          <Label htmlFor={`price-${type.id}`} className="text-xs">
+                            Price
+                          </Label>
                           <Input
                             id={`price-${type.id}`}
                             type="text"
@@ -447,7 +433,7 @@ export default function EditOrder() {
                             onChange={(e) => {
                               const value = e.target.value;
                               // Only allow non-negative integers
-                              if (value === '' || /^\d+$/.test(value)) {
+                              if (value === "" || /^\d+$/.test(value)) {
                                 updateOrderTypePrice(type.id, parseInt(value) || 0);
                               }
                             }}
@@ -466,25 +452,19 @@ export default function EditOrder() {
               <div className="space-y-2">
                 <Label>Total Amount</Label>
                 <div className="text-lg font-medium">{formatCurrency(order.totalAmount)}</div>
-                <p className="text-sm text-muted-foreground">
-                  Calculated from selected items
-                </p>
+                <p className="text-sm text-muted-foreground">Calculated from selected items</p>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Advance Paid</Label>
                 <div className="text-lg font-medium">{formatCurrency(order.advanceAmount)}</div>
-                <p className="text-sm text-muted-foreground">
-                  Cannot be modified here
-                </p>
+                <p className="text-sm text-muted-foreground">Cannot be modified here</p>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Remaining</Label>
                 <div className="text-lg font-medium">{formatCurrency(order.remainingAmount)}</div>
-                <p className="text-sm text-muted-foreground">
-                  Use the Payments tab to record payments
-                </p>
+                <p className="text-sm text-muted-foreground">Use the Payments tab to record payments</p>
               </div>
             </div>
 
@@ -493,10 +473,7 @@ export default function EditOrder() {
               <Label htmlFor="dueDate">Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
                   </Button>
@@ -533,25 +510,14 @@ export default function EditOrder() {
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
-              <Textarea 
-                id="notes" 
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-              />
+              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate(`/orders/${id}`)}
-            >
+            <Button variant="outline" onClick={() => navigate(`/orders/${id}`)}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={isSaving}
-            >
+            <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

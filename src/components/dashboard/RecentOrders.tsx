@@ -1,65 +1,24 @@
-
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+import { useState, useEffect } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom"; 
+import { Link } from "react-router-dom";
 import { formatCurrency } from "@/utils/currencyUtils";
+import { useTenant } from "@/context/TenantContext";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { Loader2 } from "lucide-react";
 
-// Sample data for recent orders
-const recentOrders = [
-  {
-    id: "ORD-1234",
-    customer: "Ahmed Khan",
-    item: "Custom Suit",
-    status: "pending",
-    date: "2023-04-15",
-    price: "250",
-  },
-  {
-    id: "ORD-1235",
-    customer: "Ayesha Malik",
-    item: "Wedding Dress",
-    status: "stitching",
-    date: "2023-04-14",
-    price: "350",
-  },
-  {
-    id: "ORD-1236",
-    customer: "Bilal Ahmed",
-    item: "Formal Shirt",
-    status: "ready",
-    date: "2023-04-13",
-    price: "80",
-  },
-  {
-    id: "ORD-1237",
-    customer: "Fatima Zahra",
-    item: "Evening Gown",
-    status: "delivered",
-    date: "2023-04-12",
-    price: "200",
-  },
-  {
-    id: "ORD-1238",
-    customer: "Usman Tariq",
-    item: "Dress Pants",
-    status: "pending",
-    date: "2023-04-11",
-    price: "95",
-  },
-];
+interface Order {
+  id: string;
+  customer: { name: string };
+  orderTypeDisplay: string;
+  status: string;
+  totalAmount: number;
+}
 
-
-const StatusBadgeMap = {
+const StatusBadgeMap: Record<string, { label: string; className: string }> = {
   pending: {
     label: "Pending",
     className: "bg-amber-100 text-amber-800 hover:bg-amber-100",
@@ -79,48 +38,93 @@ const StatusBadgeMap = {
 };
 
 export function RecentOrders() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { tenantDb, isTenantConfigured } = useTenant();
+
+  useEffect(() => {
+    if (!tenantDb || !isTenantConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchRecentOrders = async () => {
+      setIsLoading(true);
+      try {
+        const ordersQuery = query(collection(tenantDb, "orders"), orderBy("createdAt", "desc"), limit(5));
+        const snapshot = await getDocs(ordersQuery);
+        const ordersList: Order[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          customer: doc.data().customer || { name: "Unknown" },
+          orderTypeDisplay: doc.data().orderTypeDisplay || "N/A",
+          status: doc.data().status || "pending",
+          totalAmount: doc.data().totalAmount || 0,
+        }));
+        setOrders(ordersList);
+      } catch (error) {
+        console.error("Error fetching recent orders:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRecentOrders();
+  }, [tenantDb, isTenantConfigured]);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Recent Orders</CardTitle>
-        <Link to="/delivery">
-        <Button variant="outline" size="sm" >
-          View All
-        </Button>
+        <Link to="/orders">
+          <Button variant="outline" size="sm">
+            View All
+          </Button>
         </Link>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Item</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recentOrders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-medium">{order.id}</TableCell>
-                <TableCell>{order.customer}</TableCell>
-                <TableCell>{order.item}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      StatusBadgeMap[order.status as keyof typeof StatusBadgeMap].className
-                    )}
-                  >
-                    {StatusBadgeMap[order.status as keyof typeof StatusBadgeMap].label}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">{formatCurrency(order.price)}</TableCell>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No orders yet.</p>
+            <p className="text-sm mt-1">Orders will appear here once created.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => {
+                const statusConfig = StatusBadgeMap[order.status] || {
+                  label: order.status,
+                  className: "bg-gray-100 text-gray-800",
+                };
+                return (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.id}</TableCell>
+                    <TableCell>{order.customer?.name || "Unknown"}</TableCell>
+                    <TableCell>{order.orderTypeDisplay}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn(statusConfig.className)}>
+                        {statusConfig.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(order.totalAmount)}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
